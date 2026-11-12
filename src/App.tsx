@@ -419,13 +419,7 @@ export default function AeroFitApp() {
     return defaultData;
   });
 
-  const [surveyUserName, setSurveyUserName] = useState<string>('ผู้เข้าร่วมวิจัย #01');
 
-  useEffect(() => {
-    if (userData?.name) {
-      setSurveyUserName(userData.name);
-    }
-  }, [userData?.name]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1118,9 +1112,9 @@ export default function AeroFitApp() {
   const handleSurveySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nameToSubmit = (surveyUserName || userData?.name || '').trim();
+    const nameToSubmit = (userData?.name || '').trim();
     if (!nameToSubmit) {
-      alert('กรุณาระบุชื่อหรือรหัสผู้ทำแบบประเมิน');
+      alert('กรุณากรอกชื่อหรือรหัสผู้ทดสอบในหน้าตั้งค่าข้อมูลก่อนทำแบบประเมิน');
       return;
     }
 
@@ -2322,8 +2316,9 @@ export default function AeroFitApp() {
     const statD3 = calcStats('d3');
     const statTotal = calcStats('total');
 
-    const isSurveyNameDuplicate = surveySubmissions.some(
-      s => (s.userId || '').trim().toLowerCase() === surveyUserName.trim().toLowerCase()
+    const currentUserName = (userData?.name || '').trim();
+    const isSurveyNameDuplicate = !!currentUserName && surveySubmissions.some(
+      s => (s.userId || '').trim().toLowerCase() === currentUserName.toLowerCase()
     );
 
     return (
@@ -2341,6 +2336,36 @@ export default function AeroFitApp() {
               ประเมินตามโครงร่างปัญหาพิเศษ 3 ด้านหลัก (กลุ่มตัวอย่าง N = {surveySubmissions.length})
             </p>
           </div>
+
+          {/* แสดงชื่อผู้ทำแบบประเมิน (read-only จากหน้า Profile) */}
+          <div className={`mt-4 flex items-center gap-3 px-4 py-3 rounded-2xl border ${isSurveyNameDuplicate ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200'}`}>
+            <User className={`w-5 h-5 shrink-0 ${isSurveyNameDuplicate ? 'text-rose-500' : 'text-teal-600'}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">ผู้ทำแบบประเมิน (จากหน้าตั้งค่า)</p>
+              <p className={`text-sm font-bold truncate ${isSurveyNameDuplicate ? 'text-rose-700' : 'text-slate-900'}`}>
+                {currentUserName || 'ไม่ระบุชื่อ'}
+              </p>
+            </div>
+            {isSurveyNameDuplicate ? (
+              <span className="text-[11px] bg-rose-100 text-rose-700 border border-rose-300 px-2.5 py-1 rounded-full font-bold shrink-0 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> ชื่อซ้ำในระบบ
+              </span>
+            ) : (
+              <span className="text-[11px] bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-full font-bold shrink-0">
+                ✓ พร้อมส่ง
+              </span>
+            )}
+          </div>
+
+          {isSurveyNameDuplicate && (
+            <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-rose-700 text-xs font-semibold">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                ชื่อ "{currentUserName}" ได้ทำแบบประเมินไปแล้วในระบบ ไม่สามารถส่งซ้ำได้
+                <p className="font-normal text-rose-600 mt-0.5">หากต้องการส่งในนามของท่านอื่น กรุณากลับไปเปลี่ยนชื่อที่หน้าตั้งค่าข้อมูล (ปุ่ม "แก้ไขข้อมูล" ด้านบน)</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white border border-slate-200/60 rounded-3xl overflow-hidden shadow-sm">
@@ -2385,75 +2410,6 @@ export default function AeroFitApp() {
         </div>
 
         <form onSubmit={handleSurveySubmit} className="space-y-5">
-          <div className="bg-white border border-slate-200/60 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                  <User className="w-5 h-5 text-teal-600" />
-                  ข้อมูลผู้ทำแบบประเมิน (กลุ่มตัวอย่างการวิจัย)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  ระบบจะตรวจสอบชื่อผู้ทำแบบประเมินไม่ให้ซ้ำกัน เพื่อความถูกต้องตามระเบียบวิธีวิจัย
-                </p>
-              </div>
-              <span className="text-xs bg-slate-100 text-slate-600 font-semibold px-3 py-1 rounded-full self-start sm:self-auto">
-                เกณฑ์วิจัย: 1 ท่าน / 1 ชุดข้อมูล (ห้ามใช้ชื่อซ้ำ)
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700">
-                ชื่อหรือรหัสผู้ทำแบบประเมิน <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={surveyUserName}
-                onChange={(e) => setSurveyUserName(e.target.value)}
-                placeholder="เช่น ผู้เข้าร่วมวิจัย #03 หรือ รหัสนักศึกษา / ชื่อ-สกุล"
-                className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none transition-all ${
-                  isSurveyNameDuplicate
-                    ? 'border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10'
-                    : 'border-slate-200/80 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10'
-                }`}
-                required
-              />
-
-              {isSurveyNameDuplicate && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-rose-700 text-xs font-semibold animate-in fade-in">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <div>
-                    <span>ชื่อหรือรหัส "{surveyUserName.trim()}" ได้ทำแบบประเมินความพึงพอใจไปแล้วในระบบ</span>
-                    <p className="text-[11px] text-rose-600 font-normal mt-0.5">
-                      ตามระเบียบวิธีวิจัยไม่อนุญาตให้ใช้ชื่อซ้ำกันในการประเมิน กรุณาเปลี่ยนเป็นชื่อหรือรหัสผู้ประเมินท่านอื่น
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {surveySubmissions.length > 0 && (
-                <div className="pt-2">
-                  <span className="text-[11px] font-bold text-slate-500 block mb-1.5">
-                    รายชื่อผู้ที่บันทึกผลการประเมินแล้ว (N = {surveySubmissions.length} ท่าน):
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
-                    {surveySubmissions.map((s, idx) => (
-                      <span
-                        key={idx}
-                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium ${
-                          surveyUserName.trim().toLowerCase() === (s.userId || '').trim().toLowerCase()
-                            ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
-                      >
-                        {s.userId || `ผู้ประเมินคนที่ ${s.id}`}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
           {SURVEY_QUESTIONS.map((group, gIdx) => (
             <div key={gIdx} className="bg-white border border-slate-200/60 rounded-3xl p-6 sm:p-8 shadow-sm">
               <h4 className="font-extrabold text-base text-slate-900 mb-5">{group.dimension}</h4>
@@ -2487,7 +2443,7 @@ export default function AeroFitApp() {
             type="submit"
             disabled={
               isSurveyNameDuplicate ||
-              !surveyUserName.trim() ||
+              !currentUserName ||
               submitStatus === 'loading' ||
               submitStatus === 'success'
             }
