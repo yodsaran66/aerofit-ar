@@ -185,6 +185,18 @@ export const ExerciseScreen: React.FC<ExerciseScreenProps> = ({
             </div>
             <div className="countdown-number">{countdown}</div>
             <p>เตรียมตัวให้พร้อม!</p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px 16px',
+              background: 'rgba(15, 23, 42, 0.85)',
+              borderRadius: '12px',
+              border: '1px solid #14B8A6',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#5EEAD4'
+            }}>
+              📏 กรุณายืนห่างจากกล้องประมาณ 1.5 – 2 เมตร เพื่อให้เห็นร่างกายเต็มตัว
+            </div>
           </div>
         )}
 

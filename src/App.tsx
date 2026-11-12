@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Target,
   Trophy,
   Play,
@@ -293,7 +294,7 @@ function playCleanSound(type = 'success', enabled = true) {
 }
 
 export default function AeroFitApp() {
-  const [screen, setScreen] = useState('onboarding');
+  const [screen, setScreen] = useState('landing');
 
   const [heroHighlightIdx, setHeroHighlightIdx] = useState(0);
   const heroHighlights = [
@@ -366,7 +367,7 @@ export default function AeroFitApp() {
 
   // Camera Distance & Framing States
   const [distanceStatus, setDistanceStatus] = useState<'optimal' | 'too-close' | 'too-far'>('optimal');
-  const [distanceText, setDistanceText] = useState('✅ ระยะห่างเหมาะสม (ตรวจจับได้เต็มตัว)');
+  const [distanceText, setDistanceText] = useState('✅ ระยะห่างเหมาะสม 1.5 – 2 เมตร (ตรวจจับได้เต็มตัว)');
 
   // AR Game Animation States
   const [rocketFlying, setRocketFlying] = useState(false);
@@ -868,14 +869,14 @@ export default function AeroFitApp() {
       const shoulderWidth = Math.abs(lm[11].x - lm[12].x);
 
       let distStatus: 'optimal' | 'too-close' | 'too-far' = 'optimal';
-      let distMsg = '✅ ระยะห่างเหมาะสม (ตรวจพบศีรษะและข้อเท้าครบทั้งตัว)';
+      let distMsg = '✅ ระยะห่างเหมาะสม 1.5 – 2 เมตร (ตรวจพบศีรษะและข้อเท้าครบทั้งตัว)';
 
       if (!hasHead || !hasAnkles || headY < 0.04 || avgAnkleY > 0.96 || bodySpan > 0.86 || shoulderWidth > 0.36) {
         distStatus = 'too-close';
-        distMsg = '⚠️ ใกล้เกินไป: กรุณาถอยหลัง 2–3 ก้าว ให้เห็นศีรษะและข้อเท้าในเฟรม';
+        distMsg = '⚠️ ใกล้เกินไป: กรุณาถอยห่างจากกล้องประมาณ 1.5 – 2 เมตร เพื่อให้เห็นเต็มตัว';
       } else if (bodySpan < 0.38 || shoulderWidth < 0.10) {
         distStatus = 'too-far';
-        distMsg = '⚠️ ไกลเกินไป: กรุณาขยับเข้ามาใกล้กล้องอีกเล็กน้อย';
+        distMsg = '⚠️ ไกลเกินไป: กรุณาขยับเข้ามาอยู่ในระยะประมาณ 1.5 – 2 เมตร';
       }
 
       let activeConnections: number[][] = [];
@@ -1467,7 +1468,14 @@ export default function AeroFitApp() {
   const renderTopNavbar = () => (
     <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40 transition-all">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => {
+            stopCamera();
+            setIsRunning(false);
+            setScreen('landing');
+          }}
+          className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity"
+        >
           <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-bold text-sm shadow-sm">
             <Activity className="w-5 h-5 text-teal-400" />
           </div>
@@ -1480,10 +1488,11 @@ export default function AeroFitApp() {
               Augmented Reality Bodyweight Exercise Game
             </span>
           </div>
-        </div>
+        </button>
 
         <nav className="flex items-center gap-2 bg-slate-100/60 p-1 rounded-xl border border-slate-200/50">
           {[
+            { id: 'landing', label: 'หน้าแรก' },
             { id: 'onboarding', label: '1. ข้อมูลสรีระ' },
             { id: 'dashboard', label: '2. เลือกเกม AR' },
             { id: 'survey', label: '3. แบบประเมิน' }
@@ -1512,6 +1521,156 @@ export default function AeroFitApp() {
     </header>
   );
 
+  const renderLandingPage = () => (
+    <div className="max-w-6xl mx-auto px-4 py-8 sm:py-14 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Hero Section */}
+      <div className="relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-teal-950 p-8 sm:p-14 text-white shadow-2xl border border-slate-800">
+        <div className="absolute top-0 right-0 w-[480px] h-[480px] bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 space-y-6 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold uppercase tracking-wider shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-teal-300" /> มหาวิทยาลัยราชภัฏพิบูลสงคราม • วิทยาการคอมพิวเตอร์ • {getTimeGreeting()}
+          </div>
+
+          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight">
+            AeroFit <span className="text-teal-400">AR</span>
+            <span className="block text-xl sm:text-3xl font-extrabold text-slate-200 mt-3 font-sans tracking-normal">
+              เกมความเป็นจริงเสริมเพื่อยกระดับคุณภาพการออกกำลังกายบอดี้เวท
+            </span>
+          </h1>
+
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl font-medium">
+            ระบบตรวจจับชีวกลศาสตร์ด้วย AI (MediaPipe 33 จุด) ปรับเกณฑ์องศาข้อต่อตามระดับ BMI เฉพาะบุคคล
+            พร้อมกราฟิกเกม AR รอบตัวที่ไม่บดบังเรือนร่างผู้เล่น เพื่อความแม่นยำ ปลอดภัย และสร้างแรงจูงใจในการฝึกฝน
+          </p>
+
+          {/* Call to Actions */}
+          <div className="flex flex-wrap items-center gap-4 pt-3">
+            <button
+              onClick={() => setScreen('onboarding')}
+              className="px-8 py-4 rounded-2xl bg-gradient-to-r from-teal-500 via-teal-400 to-emerald-400 hover:from-teal-400 hover:to-emerald-300 text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-teal-500/25 flex items-center gap-3 transition-all transform hover:-translate-y-0.5 active:scale-95 group"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              <span>เริ่มต้นออกกำลังกาย (Start Workout)</span>
+              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedExercise('squat');
+                startExerciseSession('squat');
+              }}
+              className="px-6 py-4 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-sm border border-white/15 backdrop-blur-md transition-all active:scale-95 flex items-center gap-2.5"
+            >
+              <Video className="w-4 h-4 text-teal-300" />
+              <span>ทดลองเล่นโหมดจำลอง (Demo)</span>
+            </button>
+          </div>
+
+          {/* Highlight Pills */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-3.5 backdrop-blur-sm">
+              <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center text-teal-300 font-bold shrink-0">33</div>
+              <div className="text-xs">
+                <div className="font-bold text-white">MediaPipe AI 33 จุด</div>
+                <div className="text-slate-400 text-[11px] mt-0.5">ตรวจจับข้อต่อแบบเรียลไทม์</div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-3.5 backdrop-blur-sm">
+              <div className="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-300 font-bold shrink-0">BMI</div>
+              <div className="text-xs">
+                <div className="font-bold text-white">BMI Adaptive ROM</div>
+                <div className="text-slate-400 text-[11px] mt-0.5">ปรับเกณฑ์องศาเฉพาะบุคคล</div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-3.5 backdrop-blur-sm">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold shrink-0">AR</div>
+              <div className="text-xs">
+                <div className="font-bold text-white">Peripheral AR Layout</div>
+                <div className="text-slate-400 text-[11px] mt-0.5">เว้นกลางจอ 100% ไม่บังตัว</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3 Exercise Modes Showcase */}
+      <div className="space-y-6">
+        <div className="text-center sm:text-left">
+          <span className="text-xs font-bold uppercase tracking-wider text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full">
+            โหมดการออกกำลังกาย 3 ท่าทาง
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
+            เกมความเป็นจริงเสริมเฉพาะท่าทาง (AR Exercise Modes)
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            ออกแบบตามหลักชีวกลศาสตร์ (ISB Standard) ปลอดภัยต่อข้อต่อ พร้อมระบบแจกแจงคะแนนโปร่งใส
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {Object.values(EXERCISE_CONFIG).map(ex => (
+            <div
+              key={ex.id}
+              className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <ExerciseIllustration type={ex.id} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg">
+                    {ex.gameTitle}
+                  </span>
+                </div>
+                <h3 className="font-extrabold text-lg text-slate-900 tracking-tight">{ex.name}</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1.5 leading-relaxed">{ex.gameDesc}</p>
+                
+                <div className="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs text-slate-600">
+                  <span className="font-semibold text-slate-800">จุดตรวจจับหลัก: </span>
+                  {ex.jointLabel}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setSelectedExercise(ex.id);
+                  setScreen('onboarding');
+                }}
+                className="mt-6 w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"
+              >
+                <span>เลือกฝึกท่านี้</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Standards & PDPA Card */}
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600 shrink-0">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-slate-900">มาตรฐานความปลอดภัยและการคุ้มครองข้อมูล (PDPA)</h4>
+            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+              ภาพจากกล้องเว็บแคมจะถูกประมวลผลภายในเบราว์เซอร์ของผู้ใช้เท่านั้น ไม่มีการส่งภาพหรือบันทึกวิดีโอไปยังเซิร์ฟเวอร์ภายนอก
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setScreen('onboarding')}
+          className="px-6 py-3 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-bold text-xs whitespace-nowrap shadow-sm transition-all active:scale-95"
+        >
+          เข้าสู่ขั้นตอนคำนวณ BMI →
+        </button>
+      </div>
+    </div>
+  );
+
   const renderOnboardingScreen = () => {
     const w = parseFloat(weight) || 65;
     const h = (parseFloat(height) || 170) / 100;
@@ -1524,6 +1683,17 @@ export default function AeroFitApp() {
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setScreen('landing')}
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200/80 px-3.5 py-2 rounded-xl transition-all shadow-sm active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4 text-teal-600" />
+            <span>ย้อนกลับหน้าแรก</span>
+          </button>
+          <span className="text-xs text-slate-400 font-semibold">ขั้นตอนที่ 1 จาก 3 • คำนวณ BMI</span>
+        </div>
+
         <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 p-8 sm:p-12 text-white shadow-xl border border-slate-700">
           <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 space-y-4">
@@ -2028,8 +2198,9 @@ export default function AeroFitApp() {
               )}
 
               {!poseVisible && !isDemo && (
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-rose-500/90 backdrop-blur-md text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 border border-white/20">
-                  <AlertCircle className="w-4 h-4" /> ถอยห่างจากกล้องให้เห็นเต็มตัว
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-rose-500/90 backdrop-blur-md text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow-xl flex items-center gap-2 border border-white/20 animate-pulse">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>⚠️ กรุณายืนห่างจากกล้องประมาณ 1.5 – 2 เมตร เพื่อให้เห็นร่างกายเต็มตัว</span>
                 </div>
               )}
 
@@ -2038,11 +2209,50 @@ export default function AeroFitApp() {
                   {cameraLoading && (
                     <div className="absolute z-40 bg-slate-900/80 backdrop-blur-md text-white px-6 py-4 rounded-2xl text-sm font-semibold flex flex-col items-center gap-3 border border-white/10 shadow-2xl">
                       <RefreshCw className="w-6 h-6 animate-spin text-teal-400" />
-                      กำลังเริ่มต้น AI Pose Detection...
+                      กำลังเริ่มต้น AI Pose Detection & เทียบระยะกล้อง (1.5 – 2 ม.)...
                     </div>
                   )}
                   <video ref={videoRef} className="max-h-full max-w-full object-contain scale-x-[-1]" playsInline muted />
                   <canvas ref={canvasRef} className="absolute max-h-full max-w-full object-contain scale-x-[-1] pointer-events-none" />
+
+                  {/* Visual Full-Body Calibration Bounding Box Guide */}
+                  <div className="absolute inset-4 sm:inset-6 pointer-events-none flex items-center justify-center z-15">
+                    <div
+                      className={`relative w-48 sm:w-60 h-[84%] rounded-3xl border-2 transition-all duration-300 flex flex-col items-center justify-between p-3.5 ${
+                        distanceStatus === 'optimal'
+                          ? 'border-teal-400/50 bg-teal-500/5 shadow-[0_0_20px_rgba(20,184,166,0.2)]'
+                          : distanceStatus === 'too-close'
+                          ? 'border-amber-400/70 bg-amber-500/10 shadow-[0_0_20px_rgba(245,158,11,0.25)] animate-pulse'
+                          : 'border-sky-400/70 bg-sky-500/10 shadow-[0_0_20px_rgba(14,165,233,0.25)] animate-pulse'
+                      }`}
+                      style={{ borderStyle: distanceStatus === 'optimal' ? 'solid' : 'dashed' }}
+                    >
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider backdrop-blur-md border shadow-md ${
+                        distanceStatus === 'optimal'
+                          ? 'bg-teal-500/90 text-white border-teal-300'
+                          : distanceStatus === 'too-close'
+                          ? 'bg-amber-400 text-slate-950 border-white'
+                          : 'bg-sky-500 text-white border-white'
+                      }`}>
+                        {distanceStatus === 'optimal'
+                          ? '✅ ระยะ 1.5 - 2 ม. พร้อมฝึก'
+                          : distanceStatus === 'too-close'
+                          ? '⚠️ กรุณาถอยห่าง 1.5 - 2 ม.'
+                          : '⚠️ กรุณาขยับเข้าใกล้ 1.5 - 2 ม.'}
+                      </span>
+
+                      <div className="w-full flex justify-between items-center px-2 opacity-35">
+                        <div className="w-3 h-0.5 bg-white" />
+                        <span className="text-[9px] font-mono tracking-widest text-white uppercase">กรอบระยะเทียบสรีระ (1.5 - 2m)</span>
+                        <div className="w-3 h-0.5 bg-white" />
+                      </div>
+
+                      <div className="w-36 border-b border-white/40 pb-1 flex justify-center">
+                        <span className="text-[9px] text-white/70 font-semibold tracking-wide">ระดับข้อเท้าและพื้นยืน</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {renderARGameScene(target, isHit)}
                 </div>
               )}
@@ -2479,6 +2689,7 @@ export default function AeroFitApp() {
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-teal-200 selection:text-teal-900">
       {renderTopNavbar()}
       <main>
+        {screen === 'landing' && renderLandingPage()}
         {screen === 'onboarding' && renderOnboardingScreen()}
         {screen === 'dashboard' && renderDashboardScreen()}
         {screen === 'ar-view' && renderARViewScreen()}
