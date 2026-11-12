@@ -85,6 +85,20 @@ export const SatisfactionSurveyModal: React.FC<SurveyModalProps> = ({ isOpen, on
   const [submitted, setSubmitted] = useState(false);
   const [respondentName, setRespondentName] = useState('');
 
+  const existingSubmissions = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('aerofit_offline_surveys') || '[]');
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const isDuplicate = React.useMemo(() => {
+    if (!respondentName.trim()) return false;
+    const nameLower = respondentName.trim().toLowerCase();
+    return existingSubmissions.some((s: any) => (s.userId || '').trim().toLowerCase() === nameLower);
+  }, [respondentName, existingSubmissions]);
+
   if (!isOpen) return null;
 
   const handleSelect = (qId: string, val: number) => {
@@ -150,6 +164,11 @@ export const SatisfactionSurveyModal: React.FC<SurveyModalProps> = ({ isOpen, on
                 value={respondentName}
                 onChange={(e) => setRespondentName(e.target.value)}
               />
+              {isDuplicate && (
+                <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', fontWeight: 600 }}>
+                  ⚠️ ชื่อหรือรหัสนี้เคยส่งแบบประเมินแล้ว ไม่สามารถใช้ชื่อซ้ำได้
+                </p>
+              )}
             </div>
 
             <div className="scale-legend">
@@ -196,10 +215,24 @@ export const SatisfactionSurveyModal: React.FC<SurveyModalProps> = ({ isOpen, on
               </button>
               <button
                 className="btn btn-primary"
-                disabled={!isComplete}
-                onClick={() => setSubmitted(true)}
+                disabled={!isComplete || isDuplicate || !respondentName.trim()}
+                onClick={() => {
+                  if (isDuplicate) return;
+                  try {
+                    const existing = JSON.parse(localStorage.getItem('aerofit_offline_surveys') || '[]');
+                    existing.push({
+                      userId: respondentName.trim(),
+                      answers,
+                      timestamp: new Date().toISOString()
+                    });
+                    localStorage.setItem('aerofit_offline_surveys', JSON.stringify(existing));
+                  } catch (e) {
+                    console.warn(e);
+                  }
+                  setSubmitted(true);
+                }}
               >
-                บันทึกและประมวลผลสถิติ →
+                {isDuplicate ? 'ชื่อซ้ำในระบบ (ห้ามใช้ชื่อซ้ำ)' : 'บันทึกและประมวลผลสถิติ →'}
               </button>
             </div>
           </div>
