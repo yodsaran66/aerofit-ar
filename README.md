@@ -49,6 +49,3 @@ npm run dev
 
 # 4. บิลด์สำหรับ Production
 npm run build
-```
-
-เปิดบราวเซอร์ไปที่ `http://localhost:5173` เพื่อเริ่มใช้งาน!
