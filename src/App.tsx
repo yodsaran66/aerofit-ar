@@ -185,7 +185,9 @@ const SURVEY_QUESTIONS = [
     items: [
       { id: 'd1_1', text: 'หน้าจอแสดงผลและเมนูจัดวางเป็นระเบียบ อ่านเข้าใจง่าย' },
       { id: 'd1_2', text: 'ขั้นตอนการกรอกข้อมูลสรีระ (BMI) และการเริ่มต้นใช้งานสะดวก ไม่ยุ่งยาก' },
-      { id: 'd1_3', text: 'ตำแหน่งของภาพกราฟิกจำลอง AR มีความเหมาะสม ไม่บดบังเรือนร่างผู้เล่น' }
+      { id: 'd1_3', text: 'ตำแหน่งของภาพกราฟิกจำลอง AR มีความเหมาะสม ไม่บดบังเรือนร่างผู้เล่น' },
+      { id: 'd1_4', text: 'ขนาดตัวอักษร สี และสัญลักษณ์บ่งชี้สถานะบนหน้าจอมีความชัดเจน มองเห็นได้ง่ายขณะเคลื่อนไหว' },
+      { id: 'd1_5', text: 'แถบนำสายตาและกรอบจัดระยะกล้อง (1.5 - 2 เมตร) ช่วยให้จัดวางตำแหน่งร่างกายได้อย่างสะดวก' }
     ]
   },
   {
@@ -193,7 +195,9 @@ const SURVEY_QUESTIONS = [
     items: [
       { id: 'd2_1', text: 'ระบบตรวจจับจุดข้อต่อร่างกายได้ตรงตำแหน่งและตอบสนองต่อการเคลื่อนไหวทันที' },
       { id: 'd2_2', text: 'การคำนวณองศาและเกณฑ์ความลึกของท่ามีความเหมาะสมกับระดับสรีระ (BMI) ของผู้ใช้' },
-      { id: 'd2_3', text: 'เว็บแอปพลิเคชันทำงานลื่นไหลและภาพแสดงผลไม่กระตุกระหว่างใช้งาน' }
+      { id: 'd2_3', text: 'เว็บแอปพลิเคชันทำงานลื่นไหลและภาพแสดงผลไม่กระตุกระหว่างใช้งาน' },
+      { id: 'd2_4', text: 'ระบบสามารถตรวจจับท่าทางได้อย่างต่อเนื่องแม้มีการเคลื่อนไหวสลับข้างซ้าย-ขวา' },
+      { id: 'd2_5', text: 'ระบบเตือนระยะห่างของกล้องมีความแม่นยำ ช่วยลดข้อผิดพลาดในการตรวจจับโครงร่าง' }
     ]
   },
   {
@@ -201,7 +205,9 @@ const SURVEY_QUESTIONS = [
     items: [
       { id: 'd3_1', text: 'เป้าหมายและภารกิจของเกมช่วยกระตุ้นความสม่ำเสมอในการออกกำลังกายจนครบจำนวนครั้ง' },
       { id: 'd3_2', text: 'ระบบการนับจำนวนครั้งและคอมโบช่วยให้มีสมาธิและควบคุมท่าทางได้เต็มระยะการเคลื่อนไหว' },
-      { id: 'd3_3', text: 'การแสดงผลองศาและป้ายข้อต่อบนหน้าจอช่วยให้สังเกตและปรับท่าทางของตนเองได้อย่างถูกต้อง' }
+      { id: 'd3_3', text: 'การแสดงผลองศาและป้ายข้อต่อบนหน้าจอช่วยให้สังเกตและปรับท่าทางของตนเองได้อย่างถูกต้อง' },
+      { id: 'd3_4', text: 'เสียงตอบสนองและเอฟเฟกต์ AR ช่วยสร้างแรงจูงใจในการฝึกฝนอย่างต่อเนื่อง' },
+      { id: 'd3_5', text: 'การประยุกต์ใช้เกมช่วยส่งเสริมการออกกำลังกายที่ปลอดภัยและลดความเสี่ยงต่อการบาดเจ็บ' }
     ]
   }
 ];
@@ -387,9 +393,9 @@ export default function AeroFitApp() {
   const [lastSummary, setLastSummary] = useState<any>(null);
   const [angleSamples, setAngleSamples] = useState<number[]>([]);
   const [surveyScores, setSurveyScores] = useState<Record<string, number>>({
-    d1_1: 5, d1_2: 5, d1_3: 5,
-    d2_1: 5, d2_2: 5, d2_3: 5,
-    d3_1: 5, d3_2: 5, d3_3: 5
+    d1_1: 5, d1_2: 5, d1_3: 5, d1_4: 5, d1_5: 5,
+    d2_1: 5, d2_2: 5, d2_3: 5, d2_4: 5, d2_5: 5,
+    d3_1: 5, d3_2: 5, d3_3: 5, d3_4: 5, d3_5: 5
   });
   
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -1103,9 +1109,9 @@ export default function AeroFitApp() {
 
     setSubmitStatus('loading');
 
-    const d1 = +((surveyScores.d1_1 + surveyScores.d1_2 + surveyScores.d1_3) / 3).toFixed(2);
-    const d2 = +((surveyScores.d2_1 + surveyScores.d2_2 + surveyScores.d2_3) / 3).toFixed(2);
-    const d3 = +((surveyScores.d3_1 + surveyScores.d3_2 + surveyScores.d3_3) / 3).toFixed(2);
+    const d1 = +((surveyScores.d1_1 + surveyScores.d1_2 + surveyScores.d1_3 + surveyScores.d1_4 + surveyScores.d1_5) / 5).toFixed(2);
+    const d2 = +((surveyScores.d2_1 + surveyScores.d2_2 + surveyScores.d2_3 + surveyScores.d2_4 + surveyScores.d2_5) / 5).toFixed(2);
+    const d3 = +((surveyScores.d3_1 + surveyScores.d3_2 + surveyScores.d3_3 + surveyScores.d3_4 + surveyScores.d3_5) / 5).toFixed(2);
     const total = +((d1 + d2 + d3) / 3).toFixed(2);
 
     const payload = {
