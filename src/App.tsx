@@ -1514,9 +1514,8 @@ export default function AeroFitApp() {
             </span>
           </h1>
 
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl font-medium">
-            ระบบตรวจจับชีวกลศาสตร์ด้วย AI (MediaPipe 33 จุด) ปรับเกณฑ์องศาข้อต่อตามระดับ BMI เฉพาะบุคคล
-            พร้อมกราฟิกเกม AR รอบตัวที่ไม่บดบังเรือนร่างผู้เล่น เพื่อความแม่นยำ ปลอดภัย และสร้างแรงจูงใจในการฝึกฝน
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl font-medium min-h-[48px] transition-all duration-500">
+            {heroHighlights[heroHighlightIdx]}
           </p>
 
           {/* Call to Actions */}
@@ -1656,8 +1655,8 @@ export default function AeroFitApp() {
     const isAgeInvalid = age !== '' && (!parsedAge || parsedAge < 15 || parsedAge > 50);
 
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-        <div className="flex items-center justify-between">
+      <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
           <button
             onClick={() => setScreen('landing')}
             className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200/80 px-3.5 py-2 rounded-xl transition-all shadow-sm active:scale-95"
@@ -1665,58 +1664,22 @@ export default function AeroFitApp() {
             <ArrowLeft className="w-4 h-4 text-teal-600" />
             <span>ย้อนกลับหน้าแรก</span>
           </button>
-          <span className="text-xs text-slate-400 font-semibold">ขั้นตอนที่ 1 จาก 3 • คำนวณ BMI</span>
-        </div>
-
-        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 p-8 sm:p-12 text-white shadow-xl border border-slate-700">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5" /> มหาวิทยาลัยราชภัฏพิบูลสงคราม • วิทยาการคอมพิวเตอร์ • {getTimeGreeting()}
-            </div>
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-              AeroFit <span className="text-teal-400">AR</span>
-            </h1>
-            <p className="text-slate-300 text-sm sm:text-base max-w-2xl leading-relaxed min-h-[48px] transition-all duration-500">
-              {heroHighlights[heroHighlightIdx]}
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-teal-500/20 flex items-center justify-center text-teal-300 font-bold">33</div>
-                <div className="text-xs">
-                  <div className="font-bold text-white">MediaPipe 33 จุด</div>
-                  <div className="text-slate-400 text-[11px]">จับข้อต่อเรียลไทม์</div>
-                </div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-300 font-bold">BMI</div>
-                <div className="text-xs">
-                  <div className="font-bold text-white">ปรับเกณฑ์เฉพาะบุคคล</div>
-                  <div className="text-slate-400 text-[11px]">ตามชีวกลศาสตร์</div>
-                </div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold">AR</div>
-                <div className="text-xs">
-                  <div className="font-bold text-white">เกมไม่บังตัวผู้เล่น</div>
-                  <div className="text-slate-400 text-[11px]">สนุก ปลอดภัย ไม่ซ้ำซาก</div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-3.5 py-1 rounded-full shadow-sm">
+            ขั้นตอนที่ 1 จาก 3 • คำนวณ BMI
+          </span>
         </div>
 
         <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-10 shadow-sm">
-          <div className="mb-6">
+          <div className="mb-6 space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full">
-              ขั้นตอนที่ 1 • ตั้งค่าสรีระผู้ใช้งาน
+              ตั้งค่าสรีระผู้ใช้งาน (Biomechanical Setup)
             </span>
-            <h2 className="text-2xl font-extrabold text-slate-900 mt-2 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               กรอกข้อมูลเพื่อคำนวณ BMI และเกณฑ์องศาข้อต่อ
             </h2>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-medium">
+              ระบบจะนำส่วนสูงและน้ำหนักไปคำนวณดัชนีมวลกาย (BMI) เพื่อปรับช่วงองศาการเคลื่อนไหว (ROM) ที่ปลอดภัยและเหมาะสมกับร่างกายของคุณโดยอัตโนมัติ
+            </p>
           </div>
 
           <form onSubmit={handleProfileSave} className="space-y-6">
