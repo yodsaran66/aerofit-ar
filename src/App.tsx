@@ -200,7 +200,7 @@ const SURVEY_QUESTIONS = [
     dimension: 'ด้านที่ 3: กลไกเกมและแรงจูงใจในการฝึกฝน (Gamification & Motivation)',
     items: [
       { id: 'd3_1', text: 'เป้าหมายและภารกิจของเกมช่วยกระตุ้นความสม่ำเสมอในการออกกำลังกายจนครบจำนวนครั้ง' },
-      { id: 'd3_2', text: 'ระบบการให้คะแนนและคอมโบช่วยให้มีสมาธิและควบคุมท่าทางได้เต็มระยะการเคลื่อนไหว' },
+      { id: 'd3_2', text: 'ระบบการนับจำนวนครั้งและคอมโบช่วยให้มีสมาธิและควบคุมท่าทางได้เต็มระยะการเคลื่อนไหว' },
       { id: 'd3_3', text: 'การแสดงผลองศาและป้ายข้อต่อบนหน้าจอช่วยให้สังเกตและปรับท่าทางของตนเองได้อย่างถูกต้อง' }
     ]
   }
@@ -300,8 +300,16 @@ export default function AeroFitApp() {
   const heroHighlights = [
     'แอปพลิเคชันเกมความเป็นจริงเสริมเพื่อยกระดับคุณภาพการออกกำลังกายแบบบอดี้เวท ด้วยเทคโนโลยี MediaPipe Pose และการปรับเกณฑ์องศาข้อต่อตามระดับดัชนีมวลกาย (BMI) แบบเฉพาะบุคคล',
     'ระบบตรวจจับชีวกลศาสตร์แบบ Real-time พร้อมแสดงผลกราฟิก AR รอบตัวโดยเว้นพื้นที่กลางจอ 100% ไม่บดบังเรือนร่างผู้เล่น',
-    'ปลอดภัยด้วยเกณฑ์ Range of Motion (ROM) เฉพาะบุคคล และระบบแจกแจงคะแนนโปร่งใสทุก Repetition'
+    'ปลอดภัยด้วยเกณฑ์ Range of Motion (ROM) เฉพาะบุคคล และระบบตรวจนับจำนวนครั้งอัตโนมัติแม่นยำทุก Repetition'
   ];
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem('aerofit_clean_hi');
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -342,26 +350,17 @@ export default function AeroFitApp() {
   const [isChallengeMode, setIsChallengeMode] = useState(true);
   const [targetReps, setTargetReps] = useState(10);
   const [reps, setReps] = useState(0);
-  const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(() => Number(localStorage.getItem('aerofit_clean_hi') || 1400));
   const [combo, setCombo] = useState(0);
   const [wave, setWave] = useState(1);
   const [bossHp, setBossHp] = useState(100);
   const [elapsedSec, setElapsedSec] = useState(0);
-
-  const [scoreDetails, setScoreDetails] = useState({
-    baseTotal: 0,
-    accuracyTotal: 0,
-    comboTotal: 0,
-    lastBreakdownText: ''
-  });
 
   // Angle & Feedback States
   const [currentAngle, setCurrentAngle] = useState(15);
   const [secondaryAngle, setSecondaryAngle] = useState(12);
   const [crossKneeAngle, setCrossKneeAngle] = useState(85);
   const [poseVisible, setPoseVisible] = useState(true);
-  const [feedbackText, setFeedbackText] = useState('กำลังแสดงตัวอย่างท่าทางและการทำงานของเกม AR (โหมดสาธิตไม่นับคะแนน)');
+  const [feedbackText, setFeedbackText] = useState('กำลังแสดงตัวอย่างท่าทางและการทำงานของเกม AR (โหมดสาธิต)');
   const [feedbackStatus, setFeedbackStatus] = useState('normal');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -434,7 +433,7 @@ export default function AeroFitApp() {
   
   const lastUiDispatchRef = useRef<number>(0);
   const lastDistanceStatusRef = useRef<string>('optimal');
-  const feedbackTextRef = useRef<string>('กำลังแสดงตัวอย่างท่าทางและการทำงานของเกม AR (โหมดสาธิตไม่นับคะแนน)');
+  const feedbackTextRef = useRef<string>('กำลังแสดงตัวอย่างท่าทางและการทำงานของเกม AR (โหมดสาธิต)');
   const feedbackStatusRef = useRef<string>('normal');
 
   const adaptiveFilterRef = useRef<{
@@ -574,16 +573,9 @@ export default function AeroFitApp() {
         hasScoredRepRef.current = true;
         setRocketFlying(true);
 
-        const basePts = 100;
         const targetMid = (min + max) / 2;
         const accuracyPct = Math.max(70, Math.min(100, Math.round(100 - Math.abs(clampedPrimary - targetMid) * 1.5)));
-        const accuracyBonus = accuracyPct >= 90 ? 30 : accuracyPct >= 80 ? 20 : 10;
-        const accuracyLabel = accuracyPct >= 90 ? 'ท่าเป๊ะ' : accuracyPct >= 80 ? 'ฟอร์มดี' : 'ผ่านเกณฑ์';
-        const comboMultiplier = combo + 1 >= 3 ? 40 : combo + 1 >= 2 ? 20 : 0;
-        const totalPts = basePts + accuracyBonus + comboMultiplier;
-        const newTotalScore = score + totalPts;
-
-        const breakdownStr = `Score: ${newTotalScore} (+${totalPts} [พื้นฐาน 100 + ${accuracyLabel} ${accuracyBonus}${comboMultiplier > 0 ? ` + คอมโบ ${comboMultiplier}` : ''}])`;
+        const accuracyLabel = accuracyPct >= 90 ? 'ท่าเป๊ะมาก' : accuracyPct >= 80 ? 'ฟอร์มดี' : 'ผ่านเกณฑ์';
 
         if (isDemoMode) {
           setTimeout(() => {
@@ -602,7 +594,7 @@ export default function AeroFitApp() {
             setFloatingPopup('');
           }, 720);
 
-          const demoMsg = `สาธิตท่าทางถึงเกณฑ์เป้าหมาย (${clampedPrimary}°) • ตัวอย่างการทำงาน (ไม่นับคะแนน)`;
+          const demoMsg = `สาธิตท่าทางถึงเกณฑ์เป้าหมาย (${clampedPrimary}°) • ตัวอย่างการทำงาน`;
           feedbackTextRef.current = demoMsg;
           setFeedbackText(demoMsg);
           feedbackStatusRef.current = 'hit';
@@ -612,9 +604,21 @@ export default function AeroFitApp() {
 
         playCleanSound(selectedExercise === 'crosscrunch' ? 'slash' : 'success', soundEnabled);
 
+        let currentRepCount = 0;
+        setReps(prev => {
+          const nextReps = prev + 1;
+          currentRepCount = nextReps;
+          if (!isChallengeMode && nextReps >= targetReps) {
+            setTimeout(() => finishWorkoutSession(nextReps), 650);
+          }
+          return nextReps;
+        });
+
+        const repFeedbackPopup = `+1 ครั้ง สำเร็จ! (${accuracyLabel})`;
+
         setTimeout(() => {
           setHitEffect(true);
-          setFloatingPopup(breakdownStr);
+          setFloatingPopup(repFeedbackPopup);
         }, 160);
         setTimeout(() => {
           setRocketFlying(false);
@@ -622,7 +626,7 @@ export default function AeroFitApp() {
           setFloatingPopup('');
         }, 850);
 
-        const hitMsg = `ยอดเยี่ยม! องศาอยู่ในเกณฑ์ (${clampedPrimary}°) ได้รับ ${breakdownStr}`;
+        const hitMsg = `ยอดเยี่ยม! องศาอยู่ในเกณฑ์ (${clampedPrimary}°) ทำสำเร็จแล้ว ${currentRepCount || reps + 1} ครั้ง (${accuracyLabel})`;
         feedbackTextRef.current = hitMsg;
         setFeedbackText(hitMsg);
         feedbackStatusRef.current = 'hit';
@@ -631,22 +635,6 @@ export default function AeroFitApp() {
         setAngleSamples(prev => [...prev, clampedPrimary]);
         setCombo(prev => prev + 1);
 
-        setScoreDetails(prev => ({
-          baseTotal: prev.baseTotal + basePts,
-          accuracyTotal: prev.accuracyTotal + accuracyBonus,
-          comboTotal: prev.comboTotal + comboMultiplier,
-          lastBreakdownText: breakdownStr
-        }));
-
-        setScore(prev => {
-          const next = prev + totalPts;
-          if (next > highScore) {
-            setHighScore(next);
-            localStorage.setItem('aerofit_clean_hi', String(next));
-          }
-          return next;
-        });
-
         setBossHp(prevHp => {
           if (prevHp <= 20) {
             playCleanSound('complete', soundEnabled);
@@ -654,14 +642,6 @@ export default function AeroFitApp() {
             return 100;
           }
           return prevHp - 20;
-        });
-
-        setReps(prev => {
-          const nextReps = prev + 1;
-          if (!isChallengeMode && nextReps >= targetReps) {
-            setTimeout(() => finishWorkoutSession(nextReps), 650);
-          }
-          return nextReps;
         });
       }
     } else if (!isCorrectSide && clampedPrimary >= min - 10) {
@@ -694,7 +674,7 @@ export default function AeroFitApp() {
           }
         }
         const normMsg = isDemoMode
-          ? `สาธิตการเคลื่อนไหวเข้าสู่ช่วงเป้าหมาย ${min}°–${max}° (ไม่นับคะแนน)`
+          ? `สาธิตการเคลื่อนไหวเข้าสู่ช่วงเป้าหมาย ${min}°–${max}° (โหมดสาธิต)`
           : `ค่อยๆ เคลื่อนไหวเข้าสู่ช่วงเป้าหมาย ${min}°–${max}°`;
         if (feedbackTextRef.current !== normMsg) {
           feedbackTextRef.current = normMsg;
@@ -719,7 +699,7 @@ export default function AeroFitApp() {
         }
       }
     }
-  }, [combo, getActiveTarget, highScore, isChallengeMode, selectedExercise, soundEnabled, targetReps, wave]);
+  }, [combo, getActiveTarget, isChallengeMode, selectedExercise, soundEnabled, targetReps, wave]);
 
   useEffect(() => {
     if (screen !== 'ar-view' || mode !== 'simulation' || !isRunning || manualControl) return;
@@ -757,13 +737,11 @@ export default function AeroFitApp() {
     setCameraError('');
     setCameraLoading(true);
     setReps(0);
-    setScore(0);
     setCombo(0);
     setWave(1);
     setBossHp(100);
     setElapsedSec(0);
     setAngleSamples([]);
-    setScoreDetails({ baseTotal: 0, accuracyTotal: 0, comboTotal: 0, lastBreakdownText: '' });
     
     setCurrentAngle(0); 
     setSecondaryAngle(0);
@@ -809,7 +787,7 @@ export default function AeroFitApp() {
       detectPoseLoop();
     } catch {
       setCameraLoading(false);
-      setCameraError('ไม่พบกล้องเว็บแคม ระบบยังคงแสดงผลในโหมดสาธิต (ไม่นับคะแนน)');
+      setCameraError('ไม่พบกล้องเว็บแคม ระบบยังคงแสดงผลในโหมดสาธิต');
       setMode('simulation');
       setIsRunning(true);
     }
@@ -1044,7 +1022,6 @@ export default function AeroFitApp() {
     setSelectedExercise(exerciseId);
     setMode('simulation');
     setReps(0);
-    setScore(0);
     setCombo(0);
     setWave(1);
     setBossHp(100);
@@ -1055,7 +1032,6 @@ export default function AeroFitApp() {
     setTargetSide('left');
     setDetectedSide('left');
     setAngleSamples([]);
-    setScoreDetails({ baseTotal: 0, accuracyTotal: 0, comboTotal: 0, lastBreakdownText: '' });
     setIsRunning(true);
     setManualControl(false);
     setRocketFlying(false);
@@ -1063,7 +1039,7 @@ export default function AeroFitApp() {
     setCameraError('');
     hasScoredRepRef.current = false;
     startTimeRef.current = Date.now();
-    setFeedbackText(`สาธิตท่าทางและเกม ${EXERCISE_CONFIG[exerciseId].gameTitle} (ไม่นับคะแนน)`);
+    setFeedbackText(`สาธิตท่าทางและเกม ${EXERCISE_CONFIG[exerciseId].gameTitle}`);
     setFeedbackStatus('normal');
     setScreen('ar-view');
   };
@@ -1094,8 +1070,6 @@ export default function AeroFitApp() {
       reps: finalReps,
       targetReps: isChallengeMode ? '∞' : targetReps,
       wave,
-      score,
-      scoreDetails,
       avgAngle,
       accuracy,
       durationSec,
@@ -1906,7 +1880,6 @@ export default function AeroFitApp() {
   };
 
   const renderDashboardScreen = () => {
-    const totalScore = sessionHistory.reduce((acc, s) => acc + s.score, 0);
     const totalReps = sessionHistory.reduce((acc, s) => acc + s.reps, 0);
 
     return (
@@ -1942,11 +1915,13 @@ export default function AeroFitApp() {
               <Trophy className="w-32 h-32" />
             </div>
             <div className="relative z-10">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">คะแนนสูงสุด (เล่นจริง)</span>
-              <div className="text-4xl font-black text-slate-900 mt-2 tracking-tight">{highScore.toLocaleString()}</div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">จำนวนครั้งสะสมทั้งหมด</span>
+              <div className="text-4xl font-black text-slate-900 mt-2 tracking-tight">
+                {totalReps} <span className="text-xl font-bold text-slate-400">ครั้ง</span>
+              </div>
               <div className="text-xs font-medium text-slate-500 mt-3 flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-                ฝึกสะสมรอบนี้: {totalReps} ครั้ง ({totalScore} แต้ม)
+                ฝึกสะสมรอบนี้: {totalReps} ครั้ง ({sessionHistory.length} เซสชัน)
               </div>
             </div>
           </div>
@@ -1995,7 +1970,7 @@ export default function AeroFitApp() {
               </div>
             ) : (
               <div className="mt-4 text-[11px] font-medium text-slate-400 leading-relaxed">
-                เล่นต่อเนื่องเพื่อสะสมคะแนนสูงสุด (High Score) พร้อมระบบคอมโบคูณคะแนน
+                เล่นต่อเนื่องเพื่อฝึกนับจำนวนครั้งให้ได้มากที่สุด พร้อมระบบประเมินความแม่นยำของท่าทาง
               </div>
             )}
           </div>
@@ -2060,7 +2035,7 @@ export default function AeroFitApp() {
         {sessionHistory.length > 0 && (
           <div className="bg-white border border-slate-200/60 rounded-3xl p-6 sm:p-8 shadow-sm">
             <h3 className="text-sm font-extrabold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
-              <BarChart3 className="w-4 h-4 text-teal-500" /> ประวัติการฝึกและบันทึกคะแนน
+              <BarChart3 className="w-4 h-4 text-teal-500" /> ประวัติการฝึกและสถิติจำนวนครั้ง
             </h3>
             <div className="divide-y divide-slate-100">
               {sessionHistory.slice(0, 5).map(item => (
@@ -2070,9 +2045,9 @@ export default function AeroFitApp() {
                     <span className="text-[11px] font-semibold text-slate-400 mt-0.5">{item.modeLabel} • {item.timestamp}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-4 font-mono text-xs">
-                    <span className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-slate-600 font-semibold">สำเร็จ {item.reps} ครั้ง</span>
-                    <span className="bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 text-teal-700 font-bold">แม่นยำ {item.accuracy}%</span>
-                    <span className="bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 text-amber-600 font-black">{item.score} แต้ม</span>
+                    <span className="bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 text-teal-700 font-bold">สำเร็จ {item.reps} ครั้ง</span>
+                    <span className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-slate-700 font-semibold">แม่นยำ {item.accuracy}%</span>
+                    <span className="bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-100 text-sky-700 font-medium">องศาเฉลี่ย {item.avgAngle}°</span>
                   </div>
                 </div>
               ))}
@@ -2161,7 +2136,6 @@ export default function AeroFitApp() {
                     setMode('simulation');
                     setIsRunning(true);
                     setReps(0);
-                    setScore(0);
                     setCombo(0);
                   }}
                   className="px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm active:scale-95 transition-all"
@@ -2308,35 +2282,30 @@ export default function AeroFitApp() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-sm">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">สำเร็จ</span>
-                      <span className="text-3xl font-black text-slate-900 tracking-tight mt-1 block">
-                        {reps} <span className="text-sm font-semibold text-slate-400">{isChallengeMode ? '' : `/ ${targetReps}`}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">จำนวนครั้ง</span>
+                      <span className="text-3xl font-black text-teal-600 tracking-tight mt-1 block">
+                        {reps} <span className="text-sm font-semibold text-slate-400">{isChallengeMode ? 'ครั้ง' : `/ ${targetReps}`}</span>
                       </span>
                     </div>
                     <div className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-sm">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-                        คะแนนรวม <Flame className="w-3 h-3 text-amber-500" /> (x{combo})
+                        คอมโบต่อเนื่อง <Flame className="w-3 h-3 text-amber-500" />
                       </span>
-                      <span className="text-3xl font-black text-teal-600 tracking-tight mt-1 block">
-                        {score}
+                      <span className="text-3xl font-black text-slate-900 tracking-tight mt-1 block">
+                        {combo > 0 ? `x${combo}` : '0'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="bg-amber-50/60 border border-amber-200/60 rounded-2xl p-3.5 space-y-1.5 text-xs">
-                    <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                      <Info className="w-3.5 h-3.5 text-amber-600" /> กฎการคิดคะแนนต่อครั้ง:
+                  <div className="bg-teal-50/60 border border-teal-200/60 rounded-2xl p-3.5 space-y-1.5 text-xs">
+                    <div className="font-bold text-teal-900 flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-teal-600" /> เกณฑ์การนับจำนวนครั้ง (Rep Count):
                     </div>
-                    <div className="text-[11px] text-amber-800/90 space-y-0.5 leading-relaxed">
-                      <div>• คะแนนท่าทางพื้นฐาน: <span className="font-bold">+100</span> แต้ม/ครั้ง</div>
-                      <div>• โบนัสความแม่นยำขององศา: สูงสุด <span className="font-bold">+30</span> แต้ม</div>
-                      <div>• โบนัสคอมโบต่อเนื่อง: สูงสุด <span className="font-bold">+40</span> แต้ม</div>
+                    <div className="text-[11px] text-teal-800/90 space-y-1 leading-relaxed">
+                      <div>• เคลื่อนไหวข้อต่อให้เข้าสู่ช่วงเป้าหมาย ({target.min}°–{target.max}°)</div>
+                      <div>• ระบบ AI จะนับ 1 ครั้งเมื่อทำมุมองศาถึงเกณฑ์อย่างสมบูรณ์</div>
+                      <div>• คืนตัวสู่ท่าเริ่มต้นเพื่อเตรียมเริ่มนับครั้งถัดไป</div>
                     </div>
-                    {scoreDetails.lastBreakdownText && (
-                      <div className="mt-1 pt-1.5 border-t border-amber-200/60 font-mono font-bold text-[11px] text-teal-700">
-                        ล่าสุด: {scoreDetails.lastBreakdownText}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -2431,7 +2400,7 @@ export default function AeroFitApp() {
                     onClick={() => finishWorkoutSession(reps)}
                     className="w-full py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-md active:scale-95 transition-all"
                   >
-                    จบการฝึกและดูสรุปคะแนน
+                    จบการฝึกและดูสรุปสถิติ
                   </button>
                 )}
               </div>
@@ -2456,16 +2425,16 @@ export default function AeroFitApp() {
             {lastSummary.modeLabel}
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900 mt-3 tracking-tight">{lastSummary.exerciseName}</h2>
-          <p className="text-sm font-medium text-slate-500 mt-1">สรุปผลสถิติและแจกแจงที่มาของคะแนน</p>
+          <p className="text-sm font-medium text-slate-500 mt-1">สรุปผลสถิติการออกกำลังกาย</p>
 
           <div className="grid grid-cols-2 gap-3.5 my-6">
             <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">คะแนนรวมทั้งหมด</span>
-              <span className="text-3xl font-black font-mono text-teal-500 mt-1 block">{lastSummary.score}</span>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">จำนวนครั้งที่สำเร็จ</span>
+              <span className="text-3xl font-black font-mono text-teal-500 mt-1 block">{lastSummary.reps} ครั้ง</span>
             </div>
             <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">จำนวนครั้ง</span>
-              <span className="text-3xl font-black font-mono text-slate-900 mt-1 block">{lastSummary.reps}</span>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">เป้าหมายที่ตั้งไว้</span>
+              <span className="text-3xl font-black font-mono text-slate-900 mt-1 block">{lastSummary.targetReps} {lastSummary.targetReps === '∞' ? '' : 'ครั้ง'}</span>
             </div>
             <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">ความแม่นยำเฉลี่ย</span>
@@ -2477,26 +2446,30 @@ export default function AeroFitApp() {
             </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 text-left mb-6 space-y-2">
+          <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 text-left mb-6 space-y-2.5">
             <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-200 pb-2">
-              <Info className="w-3.5 h-3.5 text-teal-600" /> ตารางแจกแจงที่มาของคะแนน (Score Breakdown):
+              <CheckCircle2 className="w-4 h-4 text-teal-600" /> สรุปผลการฝึกออกกำลังกาย (Session Summary):
             </div>
-            <div className="text-xs text-slate-600 space-y-1.5 pt-1">
+            <div className="text-xs text-slate-600 space-y-2 pt-1">
               <div className="flex justify-between">
-                <span>1. คะแนนพื้นฐาน ({lastSummary.reps} ครั้ง × 100):</span>
-                <span className="font-mono font-bold text-slate-900">+{lastSummary.scoreDetails?.baseTotal || lastSummary.reps * 100} แต้ม</span>
+                <span>ท่าทางที่ฝึก:</span>
+                <span className="font-bold text-slate-900">{lastSummary.exerciseName}</span>
               </div>
               <div className="flex justify-between">
-                <span>2. โบนัสความแม่นยำขององศา:</span>
-                <span className="font-mono font-bold text-teal-600">+{lastSummary.scoreDetails?.accuracyTotal || 0} แต้ม</span>
+                <span>จำนวนครั้งที่ทำสำเร็จ:</span>
+                <span className="font-mono font-bold text-teal-600 text-sm">{lastSummary.reps} ครั้ง</span>
               </div>
               <div className="flex justify-between">
-                <span>3. โบนัสคอมโบต่อเนื่อง:</span>
-                <span className="font-mono font-bold text-amber-600">+{lastSummary.scoreDetails?.comboTotal || 0} แต้ม</span>
+                <span>รูปแบบการฝึก:</span>
+                <span className="font-semibold text-slate-800">{lastSummary.modeLabel}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>เวลาที่ใช้:</span>
+                <span className="font-mono text-slate-800">{formatTime(lastSummary.durationSec)}</span>
               </div>
               <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900">
-                <span>รวมคะแนนสุทธิ:</span>
-                <span className="font-mono text-teal-600 text-sm">={lastSummary.score} แต้ม</span>
+                <span>สถานะการฝึก:</span>
+                <span className="text-teal-600 font-bold">✓ เสร็จสิ้นสมบูรณ์</span>
               </div>
             </div>
           </div>
