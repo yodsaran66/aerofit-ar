@@ -29,7 +29,8 @@ import {
   User
 } from 'lucide-react';
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { Rocket3D, Spacecraft3D, PortalGate3D, CrystalTarget3D } from './components/ThreeGameSprites';
+import { Rocket3D, Spacecraft3D, PortalGate3D, MeteorTarget3D, CrystalTarget3D } from './components/ThreeGameSprites';
+import { soundManager } from './utils/soundEffects';
 
 // ==========================================
 // 1. CUSTOM SVG GAME ASSETS
@@ -262,41 +263,20 @@ function calcThighElevation(hip: any, knee: any, aspectRatio = 1.0) {
 function playCleanSound(type = 'success', enabled = true) {
   if (!enabled) return;
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (type === 'success') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.16);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.22);
-    } else if (type === 'slash') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(750, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.18);
-      gain.gain.setValueAtTime(0.18, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.22);
+    soundManager.setMuted(!enabled);
+    if (type === 'slash') {
+      soundManager.playMeteorShatterSound();
+    } else if (type === 'warp' || type === 'dock') {
+      soundManager.playWarpGateSound();
     } else if (type === 'complete') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.1);
-      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.14, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.45);
+      soundManager.playFanfare();
+    } else if (type === 'warning') {
+      soundManager.playDistanceWarningSound();
+    } else {
+      soundManager.playSuccessChime();
     }
-  } catch {
-    // ข้ามหากเบราว์เซอร์ปิดเสียงอัตโนมัติ
+  } catch (err) {
+    console.warn('Audio synthesis error:', err);
   }
 }
 
@@ -609,7 +589,15 @@ export default function AeroFitApp() {
           return;
         }
 
-        playCleanSound(selectedExercise === 'crosscrunch' ? 'slash' : 'success', soundEnabled);
+        soundManager.stopChargingTone();
+        playCleanSound(
+          selectedExercise === 'crosscrunch'
+            ? 'slash'
+            : selectedExercise === 'sidelunge'
+            ? 'warp'
+            : 'success',
+          soundEnabled
+        );
 
         let currentRepCount = 0;
         setReps(prev => {
@@ -679,6 +667,7 @@ export default function AeroFitApp() {
           if (selectedExercise !== 'squat') {
             setTargetSide(prev => (prev === 'left' ? 'right' : 'left'));
           }
+          soundManager.stopChargingTone();
         }
         const normMsg = isDemoMode
           ? `สาธิตการเคลื่อนไหวเข้าสู่ช่วงเป้าหมาย ${min}°–${max}° (โหมดสาธิต)`
@@ -693,6 +682,9 @@ export default function AeroFitApp() {
         }
       } else {
         const pct = Math.min(99, Math.max(10, Math.round(((clampedPrimary - 10) / Math.max(1, min - 10)) * 100)));
+        if (soundEnabled && !hasScoredRepRef.current && isRunning) {
+          soundManager.updateChargingTone(pct / 100, true);
+        }
         const chgMsg = isDemoMode
           ? `สาธิตชาร์จพลังงาน ${pct}% (เป้าหมาย ${min}°–${max}°)`
           : `กำลังชาร์จพลังงาน ${pct}% (เป้าหมาย ${min}°–${max}°)`;
@@ -729,6 +721,7 @@ export default function AeroFitApp() {
 
   const stopCamera = useCallback(() => {
     isCameraActiveRef.current = false;
+    soundManager.stopChargingTone();
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
@@ -1005,6 +998,9 @@ export default function AeroFitApp() {
           lastDistanceStatusRef.current = distStatus;
           setDistanceStatus(distStatus);
           setDistanceText(distMsg);
+          if (distStatus !== 'optimal' && soundEnabled) {
+            playCleanSound('warning', soundEnabled);
+          }
         }
       }
 
@@ -1289,7 +1285,7 @@ export default function AeroFitApp() {
             }`}>
               LEFT DOCK
             </span>
-            <PortalGate3D active={isLeft} hit={hitEffect && isLeft} side="left" />
+            <PortalGate3D active={isLeft} hit={hitEffect && isLeft} side="left" chargePercent={chargePercent} />
             <span className="text-[10px] font-bold text-slate-300">
               {isLeft ? `${chargePercent}% CHARGED` : 'STANDBY'}
             </span>
@@ -1303,7 +1299,7 @@ export default function AeroFitApp() {
             }`}>
               RIGHT DOCK
             </span>
-            <PortalGate3D active={!isLeft} hit={hitEffect && !isLeft} side="right" />
+            <PortalGate3D active={!isLeft} hit={hitEffect && !isLeft} side="right" chargePercent={chargePercent} />
             <span className="text-[10px] font-bold text-slate-300">
               {!isLeft ? `${chargePercent}% CHARGED` : 'STANDBY'}
             </span>
@@ -1377,7 +1373,12 @@ export default function AeroFitApp() {
         }`}>
           <div className="relative my-1">
             <div className={`relative transition-transform duration-300 ${isLeftTarget ? 'scale-110' : 'scale-90'}`}>
-              <CrystalTarget3D isHit={hitEffect && isLeftTarget} active={isLeftTarget} />
+              <MeteorTarget3D
+                isHit={hitEffect && isLeftTarget}
+                active={isLeftTarget}
+                side="left"
+                bmiCategory={userData?.categoryKey || 'normal'}
+              />
               {isLeftTarget && (
                 <div className="absolute inset-0 rounded-full border-2 border-indigo-400/50 animate-ping opacity-60 pointer-events-none" />
               )}
@@ -1389,13 +1390,13 @@ export default function AeroFitApp() {
             )}
           </div>
 
-          <div className={`w-16 h-14 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-xl backdrop-blur-md border ${
+          <div className={`w-18 px-2 py-1.5 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-xl backdrop-blur-md border ${
             isLeftTarget
               ? 'bg-teal-600/90 border-teal-400 shadow-[0_0_20px_rgba(45,212,191,0.6)]'
               : 'bg-slate-900/60 border-white/10'
           }`}>
-            <span className="text-[9px] font-mono text-teal-200 uppercase">Hip & Knee</span>
-            <span className="text-xs font-black">สะโพก-เข่าซ้าย</span>
+            <span className="text-[9px] font-mono text-teal-200 uppercase">☄️ METEOR</span>
+            <span className="text-[11px] font-black">สะโพก-เข่าซ้าย</span>
           </div>
         </div>
 
@@ -1404,7 +1405,12 @@ export default function AeroFitApp() {
         }`}>
           <div className="relative my-1">
             <div className={`relative transition-transform duration-300 ${!isLeftTarget ? 'scale-110' : 'scale-90'}`}>
-              <CrystalTarget3D isHit={hitEffect && !isLeftTarget} active={!isLeftTarget} />
+              <MeteorTarget3D
+                isHit={hitEffect && !isLeftTarget}
+                active={!isLeftTarget}
+                side="right"
+                bmiCategory={userData?.categoryKey || 'normal'}
+              />
               {!isLeftTarget && (
                 <div className="absolute inset-0 rounded-full border-2 border-teal-400/50 animate-ping opacity-60 pointer-events-none" />
               )}
@@ -1416,13 +1422,13 @@ export default function AeroFitApp() {
             )}
           </div>
 
-          <div className={`w-16 h-14 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-xl backdrop-blur-md border ${
+          <div className={`w-18 px-2 py-1.5 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-xl backdrop-blur-md border ${
             !isLeftTarget
               ? 'bg-teal-600/90 border-teal-400 shadow-[0_0_20px_rgba(45,212,191,0.6)]'
               : 'bg-slate-900/60 border-white/10'
           }`}>
-            <span className="text-[9px] font-mono text-teal-200 uppercase">Hip & Knee</span>
-            <span className="text-xs font-black">สะโพก-เข่าขวา</span>
+            <span className="text-[9px] font-mono text-teal-200 uppercase">☄️ METEOR</span>
+            <span className="text-[11px] font-black">สะโพก-เข่าขวา</span>
           </div>
         </div>
 
