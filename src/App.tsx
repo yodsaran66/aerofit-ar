@@ -29,6 +29,7 @@ import {
   User
 } from 'lucide-react';
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { Rocket3D, Spacecraft3D, PortalGate3D, CrystalTarget3D } from './components/ThreeGameSprites';
 
 // ==========================================
 // 1. CUSTOM SVG GAME ASSETS
@@ -1222,7 +1223,7 @@ export default function AeroFitApp() {
 
           <div className="absolute top-0 bottom-0 right-3 sm:right-6 w-28 sm:w-32 flex flex-col items-center">
             <div className="absolute top-6 flex flex-col items-center z-20">
-              <TargetUfoSprite hp={bossHp} isExploding={hitEffect} isDemo={isDemo} />
+              <Spacecraft3D hp={bossHp} isExploding={hitEffect} isDemo={isDemo} />
               {floatingPopup && (
                 <span className="mt-2 bg-amber-400 text-slate-950 font-black text-xs px-3 py-1.5 rounded-full shadow-xl animate-bounce whitespace-nowrap border border-white">
                   {floatingPopup}
@@ -1249,7 +1250,7 @@ export default function AeroFitApp() {
                 transform: `${rocketFlying ? 'translateY(15px) scale(0.95)' : 'translateY(0) scale(1)'}`
               }}
             >
-              <RocketSprite chargePercent={chargePercent} isFlying={rocketFlying} />
+              <Rocket3D chargePercent={chargePercent} isFlying={rocketFlying} />
             </div>
           </div>
         </div>
@@ -1288,7 +1289,7 @@ export default function AeroFitApp() {
             }`}>
               LEFT DOCK
             </span>
-            <EnergyPodSprite active={isLeft} hit={hitEffect && isLeft} />
+            <PortalGate3D active={isLeft} hit={hitEffect && isLeft} side="left" />
             <span className="text-[10px] font-bold text-slate-300">
               {isLeft ? `${chargePercent}% CHARGED` : 'STANDBY'}
             </span>
@@ -1302,7 +1303,7 @@ export default function AeroFitApp() {
             }`}>
               RIGHT DOCK
             </span>
-            <EnergyPodSprite active={!isLeft} hit={hitEffect && !isLeft} />
+            <PortalGate3D active={!isLeft} hit={hitEffect && !isLeft} side="right" />
             <span className="text-[10px] font-bold text-slate-300">
               {!isLeft ? `${chargePercent}% CHARGED` : 'STANDBY'}
             </span>
@@ -1371,12 +1372,12 @@ export default function AeroFitApp() {
           </div>
         )}
 
-        <div className={`absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 ${
+        <div className={`absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
           isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
         }`}>
           <div className="relative my-1">
             <div className={`relative transition-transform duration-300 ${isLeftTarget ? 'scale-110' : 'scale-90'}`}>
-              <PrismCrystalSprite isHit={hitEffect && isLeftTarget} />
+              <CrystalTarget3D isHit={hitEffect && isLeftTarget} active={isLeftTarget} />
               {isLeftTarget && (
                 <div className="absolute inset-0 rounded-full border-2 border-indigo-400/50 animate-ping opacity-60 pointer-events-none" />
               )}
@@ -1398,12 +1399,12 @@ export default function AeroFitApp() {
           </div>
         </div>
 
-        <div className={`absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 ${
+        <div className={`absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
           !isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
         }`}>
           <div className="relative my-1">
             <div className={`relative transition-transform duration-300 ${!isLeftTarget ? 'scale-110' : 'scale-90'}`}>
-              <PrismCrystalSprite isHit={hitEffect && !isLeftTarget} />
+              <CrystalTarget3D isHit={hitEffect && !isLeftTarget} active={!isLeftTarget} />
               {!isLeftTarget && (
                 <div className="absolute inset-0 rounded-full border-2 border-teal-400/50 animate-ping opacity-60 pointer-events-none" />
               )}
