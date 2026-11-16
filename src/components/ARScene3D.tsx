@@ -36,9 +36,17 @@ function disposeGroup(group: THREE.Group) {
   });
 }
 
+const getAssetUrl = (relativePath: string): string => {
+  const base = import.meta.env.BASE_URL || '/';
+  const cleanBase = base.endsWith('/') ? base : `${base}/`;
+  const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+  return `${cleanBase}${cleanPath}`;
+};
+
 function loadGLB(loader: GLTFLoader, url: string): Promise<THREE.Group> {
+  const resolved = getAssetUrl(url);
   return new Promise((resolve, reject) =>
-    loader.load(url, (gltf) => resolve(gltf.scene), undefined, reject)
+    loader.load(resolved, (gltf) => resolve(gltf.scene), undefined, reject)
   );
 }
 

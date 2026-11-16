@@ -14,23 +14,35 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+// Helper to resolve asset URLs with Vite base path (e.g. /aerofit-ar/ on GitHub Pages)
+export const getAssetUrl = (relativePath: string): string => {
+  const base = import.meta.env.BASE_URL || '/';
+  const cleanBase = base.endsWith('/') ? base : `${base}/`;
+  const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+  return `${cleanBase}${cleanPath}`;
+};
+
 // Cache for parsed GLTF scenes to avoid re-parsing
 const sceneCache = new Map<string, THREE.Group>();
 const loader = new GLTFLoader();
 
 function loadCachedGLTF(url: string): Promise<THREE.Group> {
-  if (sceneCache.has(url)) {
-    return Promise.resolve(sceneCache.get(url)!.clone(true));
+  const resolvedUrl = getAssetUrl(url);
+  if (sceneCache.has(resolvedUrl)) {
+    return Promise.resolve(sceneCache.get(resolvedUrl)!.clone(true));
   }
   return new Promise((resolve, reject) => {
     loader.load(
-      url,
+      resolvedUrl,
       (gltf) => {
-        sceneCache.set(url, gltf.scene);
+        sceneCache.set(resolvedUrl, gltf.scene);
         resolve(gltf.scene.clone(true));
       },
       undefined,
-      (err) => reject(err)
+      (err) => {
+        console.error(`[GLTFLoader] Failed loading from ${resolvedUrl}:`, err);
+        reject(err);
+      }
     );
   });
 }
@@ -143,13 +155,33 @@ export const Rocket3D: React.FC<Rocket3DProps> = ({ chargePercent, isFlying }) =
         rootGroup.add(model);
       })
       .catch((err) => {
-        console.warn('Failed loading rocket_baseA.glb, creating procedural 3D rocket fallback:', err);
-        // Fallback procedural 3D rocket
-        const coneGeo = new THREE.ConeGeometry(0.35, 1.0, 16);
-        const coneMat = new THREE.MeshStandardMaterial({ color: 0x14b8a6, metalness: 0.2, roughness: 0.3 });
-        const cone = new THREE.Mesh(coneGeo, coneMat);
-        rootGroup.add(cone);
-        model = rootGroup;
+        console.warn('Failed loading rocket_baseA.glb, creating procedural 3D rocket:', err);
+        // Stylized 3D Rocket: Body + Nosecone + Fins
+        const rocketMeshGroup = new THREE.Group();
+        const bodyGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.7, 16);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.3, roughness: 0.2 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0;
+        rocketMeshGroup.add(body);
+
+        const noseGeo = new THREE.ConeGeometry(0.22, 0.45, 16);
+        const noseMat = new THREE.MeshStandardMaterial({ color: 0x14b8a6, metalness: 0.4, roughness: 0.2 });
+        const nose = new THREE.Mesh(noseGeo, noseMat);
+        nose.position.y = 0.55;
+        rocketMeshGroup.add(nose);
+
+        for (let i = 0; i < 3; i++) {
+          const finGeo = new THREE.BoxGeometry(0.08, 0.3, 0.22);
+          const finMat = new THREE.MeshStandardMaterial({ color: 0x0f766e });
+          const fin = new THREE.Mesh(finGeo, finMat);
+          const angle = (i * Math.PI * 2) / 3;
+          fin.position.set(Math.cos(angle) * 0.28, -0.25, Math.sin(angle) * 0.28);
+          fin.rotation.y = -angle;
+          rocketMeshGroup.add(fin);
+        }
+
+        rootGroup.add(rocketMeshGroup);
+        model = rocketMeshGroup;
       });
 
     let rafId = 0;
