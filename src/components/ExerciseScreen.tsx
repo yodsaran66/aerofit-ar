@@ -11,6 +11,7 @@ import { useGameLogic } from '../hooks/useGameLogic';
 import { calculateJointAngles } from '../utils/angleCalculations';
 import { EXERCISE_CONFIGS } from '../config/exercises';
 import { AROverlay } from './AROverlay';
+import { ARScene3D } from './ARScene3D';
 import { soundManager } from '../utils/soundEffects';
 
 interface ExerciseScreenProps {
@@ -29,10 +30,26 @@ export const ExerciseScreen: React.FC<ExerciseScreenProps> = ({
   const [countdown, setCountdown] = useState(3);
   const [started, setStarted] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [containerSize, setContainerSize] = useState({ width: 640, height: 480 });
+  const containerRef = useRef<HTMLDivElement>(null);
   const simTimerRef = useRef<number>(0);
   const { gameState, startGame, endGame, processPose } = useGameLogic();
 
   const config = EXERCISE_CONFIGS[exerciseType];
+
+  // Track camera-container size for ARScene3D
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerSize({ width: Math.round(width), height: Math.round(height) });
+      }
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   // Process detected landmarks
   const handleLandmarks = useCallback(
@@ -56,12 +73,10 @@ export const ExerciseScreen: React.FC<ExerciseScreenProps> = ({
       let simPhase = 0;
       simTimerRef.current = window.setInterval(() => {
         simPhase += 0.08;
-        // Periodic squat/lunge/crunch motion
         const cycle = (Math.sin(simPhase) + 1) / 2; // 0 to 1
         let mockAngles: PoseAngles;
 
         if (exerciseType === 'squat' || exerciseType === 'sideLunge') {
-          // Standing (170 deg) to squat depth (65 deg)
           const knee = 170 - cycle * 105;
           mockAngles = {
             leftKnee: knee,
@@ -73,10 +88,9 @@ export const ExerciseScreen: React.FC<ExerciseScreenProps> = ({
             torsoAngle: 10 + cycle * 10,
           };
         } else {
-          // Standing cross crunch alternating simulation
           const isLeftPhase = Math.sin(simPhase / 2) >= 0;
-          const liftIntensity = Math.max(0, Math.sin(simPhase)); // 0 to 1
-          const activeHipFlex = 170 - liftIntensity * 105; // 170 down to 65
+          const liftIntensity = Math.max(0, Math.sin(simPhase));
+          const activeHipFlex = 170 - liftIntensity * 105;
           const twist = 5 + liftIntensity * 22;
 
           mockAngles = {
@@ -128,7 +142,7 @@ export const ExerciseScreen: React.FC<ExerciseScreenProps> = ({
   return (
     <div className="screen exercise-screen">
       {/* Camera + Canvas container */}
-      <div className="camera-container">
+      <div className="camera-container" ref={containerRef}>
         <video
           ref={videoRef}
           className="camera-video"
@@ -136,6 +150,15 @@ export const ExerciseScreen: React.FC<ExerciseScreenProps> = ({
           muted
         />
         <canvas ref={canvasRef} className="pose-canvas" />
+
+        {/* Three.js AR 3D Scene — rendered on its own WebGL canvas above the pose canvas */}
+        {started && gameState.isPlaying && (
+          <ARScene3D
+            gameState={gameState}
+            width={containerSize.width}
+            height={containerSize.height}
+          />
+        )}
 
         {/* Loading state */}
         {isLoading && !isDemoMode && (
@@ -200,7 +223,7 @@ export const ExerciseScreen: React.FC<ExerciseScreenProps> = ({
           </div>
         )}
 
-        {/* AR Game Overlay */}
+        {/* AR HUD Overlay (CSS-based, still active alongside 3D scene) */}
         {started && gameState.isPlaying && <AROverlay gameState={gameState} />}
 
         {/* Time's up */}
