@@ -849,7 +849,15 @@ export default function AeroFitApp() {
       let distStatus: 'optimal' | 'too-close' | 'too-far' = 'optimal';
       let distMsg = '✅ ระยะห่างเหมาะสม 1.5 – 2 เมตร (ตรวจพบศีรษะและข้อเท้าครบทั้งตัว)';
 
-      if (!hasHead || !hasAnkles || headY < 0.04 || avgAnkleY > 0.96 || bodySpan > 0.86 || shoulderWidth > 0.36) {
+      // Joint confidence check for hips (23,24), knees (25,26), ankles (27,28)
+      const hipConfidence = Math.max(lm[23]?.visibility ?? 0, lm[24]?.visibility ?? 0);
+      const kneeConfidence = Math.max(lm[25]?.visibility ?? 0, lm[26]?.visibility ?? 0);
+      const ankleConfidence = Math.max(lm[27]?.visibility ?? 0, lm[28]?.visibility ?? 0);
+
+      if (hipConfidence < 0.35 || kneeConfidence < 0.35 || ankleConfidence < 0.3) {
+        distStatus = 'too-close';
+        distMsg = '⚠️ จุดข้อต่อหลุดเฟรม/ไม่ชัด: กรุณาจัดตำแหน่งกล้องให้เห็นสะโพก เข่า และข้อเท้าชัดเจน';
+      } else if (!hasHead || !hasAnkles || headY < 0.04 || avgAnkleY > 0.96 || bodySpan > 0.86 || shoulderWidth > 0.36) {
         distStatus = 'too-close';
         distMsg = '⚠️ ใกล้เกินไป: กรุณาถอยห่างจากกล้องประมาณ 1.5 – 2 เมตร เพื่อให้เห็นเต็มตัว';
       } else if (bodySpan < 0.38 || shoulderWidth < 0.10) {
@@ -1218,7 +1226,7 @@ export default function AeroFitApp() {
           </div>
 
           <div className="absolute top-0 bottom-0 right-3 sm:right-6 w-28 sm:w-32 flex flex-col items-center">
-            <div className="absolute top-6 flex flex-col items-center z-20">
+            <div className="absolute top-10 flex flex-col items-center z-20">
               <Spacecraft3D hp={bossHp} isExploding={hitEffect} isDemo={isDemo} />
             </div>
 
@@ -1233,7 +1241,7 @@ export default function AeroFitApp() {
             <div
               className="absolute transition-all duration-700 ease-out z-30"
               style={{
-                bottom: rocketFlying ? '72%' : `${8 + chargeRatio * 10}%`,
+                bottom: rocketFlying ? '68%' : `${18 + chargeRatio * 10}%`,
                 transform: 'translateY(0) scale(1)',
               }}
             >
