@@ -29,7 +29,16 @@ import {
   User
 } from 'lucide-react';
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { Rocket3D, Spacecraft3D, PortalGate3D, MeteorTarget3D, CrystalTarget3D } from './components/ThreeGameSprites';
+import { 
+  AltitudeShip3D, 
+  SpaceRing3D, 
+  StepPad3D, 
+  MeteorTarget3D, 
+  Rocket3D, 
+  Spacecraft3D, 
+  PortalGate3D, 
+  CrystalTarget3D 
+} from './components/ThreeGameSprites';
 import { soundManager } from './utils/soundEffects';
 
 // ==========================================
@@ -354,6 +363,23 @@ export default function AeroFitApp() {
   // Camera Distance & Framing States
   const [distanceStatus, setDistanceStatus] = useState<'optimal' | 'too-close' | 'too-far'>('optimal');
   const [distanceText, setDistanceText] = useState('✅ ระยะห่างเหมาะสม 1.5 – 2 เมตร (ตรวจจับได้เต็มตัว)');
+
+  // Real-time body joint coordinates for Body-as-Controller AR overlay
+  const [bodyJoints, setBodyJoints] = useState<{
+    hipY: number; // 0 (top) to 1 (bottom)
+    hipX: number;
+    leftKnee: { x: number; y: number };
+    rightKnee: { x: number; y: number };
+    leftAnkle: { x: number; y: number };
+    rightAnkle: { x: number; y: number };
+  }>({
+    hipY: 0.55,
+    hipX: 0.5,
+    leftKnee: { x: 0.42, y: 0.72 },
+    rightKnee: { x: 0.58, y: 0.72 },
+    leftAnkle: { x: 0.40, y: 0.92 },
+    rightAnkle: { x: 0.60, y: 0.92 },
+  });
 
   // AR Game Animation States
   const [rocketFlying, setRocketFlying] = useState(false);
@@ -1002,6 +1028,18 @@ export default function AeroFitApp() {
         setCrossKneeAngle(0);
         setDetectedSide(activeSide);
 
+        // Update body coordinates for real-time Body-as-Controller AR tracking
+        if (lm[23] && lm[24]) {
+          setBodyJoints({
+            hipY: (lm[23].y + lm[24].y) / 2,
+            hipX: 1 - ((lm[23].x + lm[24].x) / 2), // mirror X
+            leftKnee: { x: 1 - (lm[25]?.x ?? 0.42), y: lm[25]?.y ?? 0.72 },
+            rightKnee: { x: 1 - (lm[26]?.x ?? 0.58), y: lm[26]?.y ?? 0.72 },
+            leftAnkle: { x: 1 - (lm[27]?.x ?? 0.40), y: lm[27]?.y ?? 0.92 },
+            rightAnkle: { x: 1 - (lm[28]?.x ?? 0.60), y: lm[28]?.y ?? 0.92 },
+          });
+        }
+
         if (distStatus !== lastDistanceStatusRef.current) {
           lastDistanceStatusRef.current = distStatus;
           setDistanceStatus(distStatus);
@@ -1198,7 +1236,7 @@ export default function AeroFitApp() {
   };
 
   // ==========================================
-  // 10. AR Scene Overlay
+  // 10. AR Scene Overlay (Body-as-Controller)
   // ==========================================
   const renderARGameScene = (target: any, isHit: boolean) => {
     const targetMid = (target.min + target.max) / 2;
@@ -1206,68 +1244,83 @@ export default function AeroFitApp() {
     const chargePercent = Math.round(chargeRatio * 100);
     const isDemo = mode === 'simulation';
 
+    // 1. SQUAT — Real-time Altitude Control
     if (selectedExercise === 'squat') {
+      // In camera mode: ship Y tracks real-time hip height (bodyJoints.hipY: ~0.45 standing to ~0.75 squatting)
+      // In demo mode: ship Y drops with simulated chargeRatio
+      const shipTopPercent = isDemo
+        ? 35 + chargeRatio * 32
+        : Math.min(75, Math.max(25, bodyJoints.hipY * 100));
+
+      const ringTopPercent = 65; // Target energy ring height (squat depth)
+
       return (
         <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
-          <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-30">
-            <div
-              className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full border flex flex-col items-center justify-center transition-all duration-300 ease-out backdrop-blur-md shadow-lg ${
-                isHit
-                  ? 'bg-teal-500/90 text-white border-teal-400 scale-105 shadow-[0_0_30px_rgba(45,212,191,0.5)]'
-                  : 'bg-slate-900/85 text-slate-200 border-white/20'
-              }`}
-            >
-              <span className="text-[10px] font-bold tracking-wide opacity-80 uppercase">ความลึกของท่า</span>
-              <span className="text-3xl font-black font-mono mt-0.5">{chargePercent}%</span>
-              <span className="text-[10px] mt-1 font-semibold opacity-75">
-                เป้า: {target.min}°–{target.max}°
+          {/* Energy Ring / Target Gate at Target Altitude */}
+          <div
+            className="absolute right-[12%] sm:right-[18%] transition-all duration-300 z-20 flex flex-col items-center -translate-y-1/2"
+            style={{ top: `${ringTopPercent}%` }}
+          >
+            <SpaceRing3D hp={bossHp} isHit={isHit} isDemo={isDemo} />
+            <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-md mt-1 transition-all ${
+              isHit
+                ? 'bg-teal-500 text-white border-teal-300 scale-105 shadow-[0_0_15px_rgba(45,212,191,0.8)]'
+                : 'bg-slate-900/80 text-teal-300 border-teal-500/30'
+            }`}>
+              {isHit ? '⚡ DOCKED! (+1)' : `เป้าหมาย: ${target.min}° (${chargePercent}%)`}
+            </span>
+          </div>
+
+          {/* Player-Controlled Ship tracking Hip Altitude */}
+          <div
+            className="absolute right-[24%] sm:right-[30%] transition-all duration-100 ease-out z-30 flex flex-col items-center -translate-y-1/2"
+            style={{ top: `${shipTopPercent}%` }}
+          >
+            <AltitudeShip3D chargePercent={chargePercent} isHit={isHit} />
+          </div>
+
+          {/* Real-time Connection Energy Beam from Hip to Spacecraft */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+            <line
+              x1={`${(bodyJoints.hipX) * 100}%`}
+              y1={`${(bodyJoints.hipY) * 100}%`}
+              x2="73%"
+              y2={`${shipTopPercent}%`}
+              stroke={isHit ? '#2DD4BF' : '#38BDF8'}
+              strokeWidth={isHit ? '3' : '1.5'}
+              strokeDasharray={isHit ? 'none' : '4,4'}
+              opacity={isHit ? '0.85' : '0.45'}
+            />
+            {/* Target altitude reference line */}
+            <line
+              x1="45%"
+              y1={`${ringTopPercent}%`}
+              x2="88%"
+              y2={`${ringTopPercent}%`}
+              stroke="#14B8A6"
+              strokeWidth="1"
+              strokeDasharray="3,3"
+              opacity="0.3"
+            />
+          </svg>
+
+          {floatingPopup && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap">
+              <span className="bg-amber-400 text-slate-950 font-bold text-[11px] px-3.5 py-1 rounded-xl shadow-lg border border-white/70 backdrop-blur-sm animate-bounce">
+                {floatingPopup}
               </span>
             </div>
-          </div>
-
-          <div className="absolute top-0 bottom-0 right-3 sm:right-6 w-28 sm:w-32 flex flex-col items-center">
-            <div className="absolute top-10 flex flex-col items-center z-20">
-              <Spacecraft3D hp={bossHp} isExploding={hitEffect} isDemo={isDemo} />
-            </div>
-
-            {floatingPopup && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap">
-                <span className="bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-xl shadow-lg border border-white/70 backdrop-blur-sm animate-bounce">
-                  {floatingPopup}
-                </span>
-              </div>
-            )}
-
-            <div
-              className="absolute transition-all duration-700 ease-out z-30"
-              style={{
-                bottom: rocketFlying ? '68%' : `${18 + chargeRatio * 10}%`,
-                transform: 'translateY(0) scale(1)',
-              }}
-            >
-              <Rocket3D chargePercent={chargePercent} isFlying={rocketFlying} />
-            </div>
-          </div>
+          )}
         </div>
       );
     }
 
+    // 2. SIDE LUNGE — Ground Step Pads (Left/Right)
     if (selectedExercise === 'sidelunge') {
       const isLeft = targetSide === 'left';
-      const railPositionPercent = isLeft ? 20 + (1 - chargeRatio) * 25 : 80 - (1 - chargeRatio) * 25;
 
       return (
         <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/85 backdrop-blur-md border border-white/15 px-6 py-2 rounded-full text-xs font-bold text-slate-200 tracking-wide shadow-xl whitespace-nowrap z-30">
-            <MoveHorizontal className="w-4 h-4 text-sky-400 animate-pulse" />
-            <span>
-              {isLeft ? '🎯 เป้าหมาย: ก้าวย่อเข่าซ้าย (LEFT DOCK)' : '🎯 เป้าหมาย: ก้าวย่อเข่าขวา (RIGHT DOCK)'}
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 font-mono text-sky-300">
-              {currentAngle}° / {target.min}°
-            </span>
-          </div>
-
           {floatingPopup && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap">
               <span className="bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-xl shadow-lg border border-white/70 backdrop-blur-sm flex items-center gap-1.5 animate-bounce">
@@ -1276,86 +1329,75 @@ export default function AeroFitApp() {
             </div>
           )}
 
-          <div className={`absolute left-[12%] sm:left-[16%] top-[34%] flex flex-col items-center gap-1.5 transition-all duration-300 z-30 ${
+          {/* Left Step Pad at Ground Level */}
+          <div className={`absolute left-[10%] sm:left-[16%] bottom-10 flex flex-col items-center gap-1 transition-all duration-300 z-30 ${
             isLeft ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
           }`}>
-            <span className={`text-[10px] sm:text-xs font-black tracking-wider px-3 py-1 rounded-full shadow-md transition-colors ${
+            <span className={`text-[10px] font-black tracking-wider px-3 py-0.5 rounded-full shadow-md transition-colors ${
               isLeft ? 'bg-sky-500 text-white shadow-sky-500/50' : 'bg-slate-900/80 text-slate-400 border border-white/10'
             }`}>
-              LEFT DOCK
+              LEFT STEP PAD
             </span>
-            <PortalGate3D active={isLeft} hit={hitEffect && isLeft} side="left" chargePercent={chargePercent} />
+            <StepPad3D active={isLeft} hit={hitEffect && isLeft} side="left" chargePercent={chargePercent} />
             <span className="text-[10px] font-bold text-slate-300">
               {isLeft ? `${chargePercent}% CHARGED` : 'STANDBY'}
             </span>
           </div>
 
-          <div className={`absolute right-[12%] sm:right-[16%] top-[34%] flex flex-col items-center gap-1.5 transition-all duration-300 z-30 ${
+          {/* Right Step Pad at Ground Level */}
+          <div className={`absolute right-[10%] sm:right-[16%] bottom-10 flex flex-col items-center gap-1 transition-all duration-300 z-30 ${
             !isLeft ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
           }`}>
-            <span className={`text-[10px] sm:text-xs font-black tracking-wider px-3 py-1 rounded-full shadow-md transition-colors ${
+            <span className={`text-[10px] font-black tracking-wider px-3 py-0.5 rounded-full shadow-md transition-colors ${
               !isLeft ? 'bg-sky-500 text-white shadow-sky-500/50' : 'bg-slate-900/80 text-slate-400 border border-white/10'
             }`}>
-              RIGHT DOCK
+              RIGHT STEP PAD
             </span>
-            <PortalGate3D active={!isLeft} hit={hitEffect && !isLeft} side="right" chargePercent={chargePercent} />
+            <StepPad3D active={!isLeft} hit={hitEffect && !isLeft} side="right" chargePercent={chargePercent} />
             <span className="text-[10px] font-bold text-slate-300">
               {!isLeft ? `${chargePercent}% CHARGED` : 'STANDBY'}
             </span>
           </div>
 
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-80 sm:w-96 flex flex-col items-center gap-2 z-30">
-            <div className="relative w-full h-2.5 bg-slate-900/85 rounded-full border border-white/20 overflow-visible backdrop-blur-md">
-              <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-white/40 -translate-x-1/2" />
-              <div
-                className="absolute -top-3.5 -translate-x-1/2 transition-all duration-150 ease-out flex flex-col items-center"
-                style={{ left: `${railPositionPercent}%` }}
-              >
-                <div className={`px-3 py-1 rounded-xl border flex items-center gap-1.5 text-xs font-black shadow-xl backdrop-blur-md transition-all ${
-                  isHit && detectedSide === targetSide
-                    ? 'bg-teal-500 text-white border-teal-300 scale-105 shadow-teal-500/50'
-                    : 'bg-slate-900/95 text-sky-300 border-sky-400/40'
-                }`}>
-                  <Zap className="w-3.5 h-3.5 text-sky-400 fill-current" />
-                  <span>GLIDER {currentAngle}°</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-between w-full text-[10px] font-bold text-slate-400 px-1">
-              <span>◀ ท่าก้าวซ้าย</span>
-              <span className="text-sky-300 font-mono tracking-wider">GLIDER POSITION TRACKER</span>
-              <span>ท่าก้าวขวา ▶</span>
-            </div>
-          </div>
+          {/* Real-time Connection Energy Beam from Feet to Step Pads */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+            {isLeft ? (
+              <line
+                x1={`${bodyJoints.leftAnkle.x * 100}%`}
+                y1={`${bodyJoints.leftAnkle.y * 100}%`}
+                x2="18%"
+                y2="82%"
+                stroke={isHit ? '#2DD4BF' : '#38BDF8'}
+                strokeWidth={isHit ? '3.5' : '2'}
+                strokeDasharray={isHit ? 'none' : '4,4'}
+                opacity={isHit ? '0.9' : '0.55'}
+              />
+            ) : (
+              <line
+                x1={`${bodyJoints.rightAnkle.x * 100}%`}
+                y1={`${bodyJoints.rightAnkle.y * 100}%`}
+                x2="82%"
+                y2="82%"
+                stroke={isHit ? '#2DD4BF' : '#38BDF8'}
+                strokeWidth={isHit ? '3.5' : '2'}
+                strokeDasharray={isHit ? 'none' : '4,4'}
+                opacity={isHit ? '0.9' : '0.55'}
+              />
+            )}
+          </svg>
         </div>
       );
     }
 
+    // 3. STANDING CROSS CRUNCH — Knee Strike Meteor
     const isLeftTarget = targetSide === 'left';
+    // Meteor height calculated from BMI & knee strike zone (~48% to 56%)
+    const meteorTopPercent = userData?.categoryKey === 'obese' ? 56 : userData?.categoryKey === 'overweight' ? 52 : 48;
 
     return (
       <div className={`absolute inset-0 pointer-events-none z-20 overflow-hidden transition-all duration-300 ${
         isHit ? 'border-4 border-teal-400/50 bg-teal-500/10' : ''
       }`}>
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 bg-slate-900/85 backdrop-blur-md border border-white/15 px-6 py-2 rounded-full text-xs font-bold text-slate-200 tracking-wide shadow-xl whitespace-nowrap z-30">
-          <Zap className={`w-4 h-4 ${isLeftTarget ? 'text-indigo-400 animate-pulse' : 'text-teal-400 animate-pulse'}`} />
-          <span>
-            {isLeftTarget
-              ? 'เป้าหมายฝั่งซ้าย: ยกสะโพก & เข่าซ้ายเข้าสู่ช่วงเป้าหมาย'
-              : 'เป้าหมายฝั่งขวา: ยกสะโพก & เข่าขวาเข้าสู่ช่วงเป้าหมาย'}
-          </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 font-mono text-teal-300">
-            {currentAngle}° / {target.min}°
-          </span>
-        </div>
-
-        <div className="absolute inset-8 sm:inset-12 pointer-events-none">
-          <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-teal-400/40 rounded-tl-lg" />
-          <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-teal-400/40 rounded-tr-lg" />
-          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-teal-400/40 rounded-bl-lg" />
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-teal-400/40 rounded-br-lg" />
-        </div>
-
         {floatingPopup && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap">
             <div className="bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-xl shadow-lg border border-white/70 backdrop-blur-sm flex items-center gap-1.5 animate-bounce">
@@ -1365,86 +1407,82 @@ export default function AeroFitApp() {
           </div>
         )}
 
-        <div className={`absolute left-[24%] sm:left-[26%] top-[55%] -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
-          isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
-        }`}>
-          <div className="relative my-1">
-            <div className={`relative transition-transform duration-300 ${isLeftTarget ? 'scale-110' : 'scale-90'}`}>
-              <MeteorTarget3D
-                isHit={hitEffect && isLeftTarget}
-                active={isLeftTarget}
-                side="left"
-                bmiCategory={userData?.categoryKey || 'normal'}
-              />
-              {isLeftTarget && (
-                <div className="absolute inset-0 rounded-full border-2 border-indigo-400/50 animate-ping opacity-60 pointer-events-none" />
-              )}
-            </div>
+        {/* Left Meteor Target */}
+        <div
+          className={`absolute left-[20%] sm:left-[24%] -translate-y-1/2 flex flex-col items-center gap-2 transition-all duration-300 z-30 ${
+            isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-30'
+          }`}
+          style={{ top: `${meteorTopPercent}%` }}
+        >
+          <div className="relative">
+            <MeteorTarget3D
+              isHit={hitEffect && isLeftTarget}
+              active={isLeftTarget}
+              side="left"
+              bmiCategory={userData?.categoryKey || 'normal'}
+            />
             {isLeftTarget && (
               <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow tracking-wider uppercase whitespace-nowrap">
                 TARGET
               </span>
             )}
           </div>
-
-          <div className={`w-18 px-2 py-1.5 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-xl backdrop-blur-md border ${
-            isLeftTarget
-              ? 'bg-teal-600/90 border-teal-400 shadow-[0_0_20px_rgba(45,212,191,0.6)]'
-              : 'bg-slate-900/60 border-white/10'
-          }`}>
-            <span className="text-[9px] font-mono text-teal-200 uppercase">☄️ METEOR</span>
-            <span className="text-[11px] font-black">สะโพก-เข่าซ้าย</span>
-          </div>
+          <span className="text-[10px] font-black text-teal-300 bg-slate-900/80 px-2.5 py-0.5 rounded-full border border-teal-500/20">
+            {isLeftTarget ? `ยกเข่าซ้าย (${chargePercent}%)` : 'STANDBY'}
+          </span>
         </div>
 
-        <div className={`absolute right-[24%] sm:right-[26%] top-[55%] -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
-          !isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
-        }`}>
-          <div className="relative my-1">
-            <div className={`relative transition-transform duration-300 ${!isLeftTarget ? 'scale-110' : 'scale-90'}`}>
-              <MeteorTarget3D
-                isHit={hitEffect && !isLeftTarget}
-                active={!isLeftTarget}
-                side="right"
-                bmiCategory={userData?.categoryKey || 'normal'}
-              />
-              {!isLeftTarget && (
-                <div className="absolute inset-0 rounded-full border-2 border-teal-400/50 animate-ping opacity-60 pointer-events-none" />
-              )}
-            </div>
+        {/* Right Meteor Target */}
+        <div
+          className={`absolute right-[20%] sm:right-[24%] -translate-y-1/2 flex flex-col items-center gap-2 transition-all duration-300 z-30 ${
+            !isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-30'
+          }`}
+          style={{ top: `${meteorTopPercent}%` }}
+        >
+          <div className="relative">
+            <MeteorTarget3D
+              isHit={hitEffect && !isLeftTarget}
+              active={!isLeftTarget}
+              side="right"
+              bmiCategory={userData?.categoryKey || 'normal'}
+            />
             {!isLeftTarget && (
               <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow tracking-wider uppercase whitespace-nowrap">
                 TARGET
               </span>
             )}
           </div>
-
-          <div className={`w-18 px-2 py-1.5 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-xl backdrop-blur-md border ${
-            !isLeftTarget
-              ? 'bg-teal-600/90 border-teal-400 shadow-[0_0_20px_rgba(45,212,191,0.6)]'
-              : 'bg-slate-900/60 border-white/10'
-          }`}>
-            <span className="text-[9px] font-mono text-teal-200 uppercase">☄️ METEOR</span>
-            <span className="text-[11px] font-black">สะโพก-เข่าขวา</span>
-          </div>
+          <span className="text-[10px] font-black text-teal-300 bg-slate-900/80 px-2.5 py-0.5 rounded-full border border-teal-500/20">
+            {!isLeftTarget ? `ยกเข่าขวา (${chargePercent}%)` : 'STANDBY'}
+          </span>
         </div>
 
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-30">
-          <div className="flex items-center justify-between w-64 sm:w-80 text-[11px] font-bold text-slate-300 px-1">
-            <span className="flex items-center gap-1 text-teal-300">
-              <Zap className="w-3 h-3" /> ยกสะโพก-เข่า: {currentAngle}°
-            </span>
-            <span className="text-indigo-300">
-              เป้าหมาย: {target.min}°–{target.max}°
-            </span>
-          </div>
-          <div className="w-64 sm:w-80 h-3.5 bg-slate-900/90 rounded-full overflow-hidden border border-white/20 p-0.5 shadow-2xl backdrop-blur-md">
-            <div 
-              className="h-full bg-gradient-to-r from-teal-400 via-sky-400 to-indigo-500 rounded-full transition-all duration-150 shadow-[0_0_15px_rgba(45,212,191,0.8)]"
-              style={{ width: `${chargePercent}%` }}
+        {/* Real-time Connection Energy Beam from Knee to Meteor Target */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+          {isLeftTarget ? (
+            <line
+              x1={`${bodyJoints.leftKnee.x * 100}%`}
+              y1={`${bodyJoints.leftKnee.y * 100}%`}
+              x2="24%"
+              y2={`${meteorTopPercent}%`}
+              stroke={isHit ? '#2DD4BF' : '#818CF8'}
+              strokeWidth={isHit ? '3.5' : '2'}
+              strokeDasharray={isHit ? 'none' : '4,4'}
+              opacity={isHit ? '0.9' : '0.55'}
             />
-          </div>
-        </div>
+          ) : (
+            <line
+              x1={`${bodyJoints.rightKnee.x * 100}%`}
+              y1={`${bodyJoints.rightKnee.y * 100}%`}
+              x2="76%"
+              y2={`${meteorTopPercent}%`}
+              stroke={isHit ? '#2DD4BF' : '#2DD4BF'}
+              strokeWidth={isHit ? '3.5' : '2'}
+              strokeDasharray={isHit ? 'none' : '4,4'}
+              opacity={isHit ? '0.9' : '0.55'}
+            />
+          )}
+        </svg>
       </div>
     );
   };
@@ -2234,11 +2272,11 @@ export default function AeroFitApp() {
                 </div>
               )}
 
-              <div className="absolute bottom-6 left-6 right-6 z-30 flex justify-center">
+              <div className="absolute top-4 left-6 right-6 z-30 flex justify-center pointer-events-none">
                 <div
-                  className={`px-5 py-3 rounded-2xl text-xs font-bold tracking-wide backdrop-blur-md border shadow-lg transition-all duration-300 transform ${
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide backdrop-blur-md border shadow-md transition-all duration-300 transform ${
                     feedbackStatus === 'hit'
-                      ? 'bg-teal-500/90 text-white border-teal-400 scale-105'
+                      ? 'bg-teal-500/90 text-white border-teal-300 scale-105'
                       : feedbackStatus === 'warn'
                       ? 'bg-amber-400/90 text-slate-900 border-amber-300'
                       : 'bg-slate-900/80 text-slate-200 border-white/10'
