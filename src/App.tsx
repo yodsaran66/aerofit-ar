@@ -1231,22 +1231,10 @@ export default function AeroFitApp() {
             )}
 
             <div
-              className={`absolute w-2 rounded-full origin-bottom transition-all duration-150 ease-out z-10 ${
-                rocketFlying ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'
-              }`}
+              className="absolute transition-all duration-700 ease-out z-30"
               style={{
-                background: 'linear-gradient(to top, #14B8A6, #99F6E4, #FFFFFF)',
-                boxShadow: '0 0 20px 4px rgba(45,212,191,0.6)',
-                bottom: `calc(${5 + chargeRatio * 15}% + 80px)`, 
-                top: '12%', 
-              }}
-            />
-
-            <div
-              className="absolute transition-all duration-150 ease-out z-30"
-              style={{
-                bottom: `${5 + chargeRatio * 15}%`,
-                transform: `${rocketFlying ? 'translateY(15px) scale(0.95)' : 'translateY(0) scale(1)'}`
+                bottom: rocketFlying ? '72%' : `${8 + chargeRatio * 10}%`,
+                transform: 'translateY(0) scale(1)',
               }}
             >
               <Rocket3D chargePercent={chargePercent} isFlying={rocketFlying} />

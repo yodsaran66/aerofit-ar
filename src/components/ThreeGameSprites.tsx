@@ -153,11 +153,12 @@ export const Rocket3D: React.FC<Rocket3DProps> = ({ chargePercent, isFlying }) =
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 1.35 / maxDim;
+        const scale = 1.6 / maxDim;
         model.scale.setScalar(scale);
         model.position.sub(center.multiplyScalar(scale));
-        model.position.y += 0.12;
-        model.rotation.y = Math.PI / 4;
+        model.position.y += 0.05;
+        // Isometric 3/4 view: shows front, top cockpit, and wings clearly
+        model.rotation.set(0.35, -0.45, 0);
         rootGroup.add(model);
       })
       .catch((err) => {
@@ -227,27 +228,23 @@ export const Rocket3D: React.FC<Rocket3DProps> = ({ chargePercent, isFlying }) =
         }
       }
 
-      // Tremble / Vibration & Launch Animation
+      // Rocket animation without continuous spinning
       if (model) {
-        const squatDepth = chargePercent / 100;
         if (isFlying) {
-          // Launch upward translation
-          rootGroup.position.y = Math.min((rootGroup.position.y || 0) + 0.12, 3.2);
-          rootGroup.rotation.y += 0.1;
-          rootGroup.rotation.z = Math.sin(t * 15) * 0.04;
+          // Stable vertical ascent: straight up without Y-axis spin
+          rootGroup.position.x = 0;
+          rootGroup.position.y = Math.min((rootGroup.position.y || 0) + 0.14, 3.2);
+          rootGroup.rotation.set(0, 0, Math.sin(t * 18) * 0.02);
         } else if (chargePercent > 20) {
-          // Charging squat: drop Y proportional to squat depth + vibration
-          const shakeIntensity = squatDepth * 0.035;
-          const descendY = -squatDepth * 0.45;
-          rootGroup.position.x = Math.sin(t * 50) * shakeIntensity;
-          rootGroup.position.y = descendY + Math.cos(t * 45) * shakeIntensity;
-          rootGroup.rotation.y = Math.PI / 4 + Math.sin(t * 2) * 0.05;
-          rootGroup.rotation.z = Math.sin(t * 40) * (shakeIntensity * 0.8);
+          // Charging squat: gentle hover + micro-vibration, keeping front-facing orientation
+          const shakeIntensity = (chargePercent / 100) * 0.025;
+          rootGroup.position.x = Math.sin(t * 45) * shakeIntensity;
+          rootGroup.position.y = Math.sin(t * 3) * 0.04 + Math.cos(t * 40) * shakeIntensity;
+          rootGroup.rotation.set(0, 0, Math.sin(t * 30) * (shakeIntensity * 0.5));
         } else {
-          // Return to idle hover
-          rootGroup.position.set(0, Math.sin(t * 2.5) * 0.03, 0);
-          rootGroup.rotation.y = Math.PI / 4 + Math.sin(t * 1.5) * 0.06;
-          rootGroup.rotation.z = Math.sin(t * 2) * 0.02;
+          // Calm idle hover with fixed orientation
+          rootGroup.position.set(0, Math.sin(t * 2.2) * 0.035, 0);
+          rootGroup.rotation.set(0, 0, 0);
         }
       }
 
@@ -372,10 +369,11 @@ export const Spacecraft3D: React.FC<Spacecraft3DProps> = ({ hp, isExploding, isD
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 1.55 / maxDim;
+        const scale = 1.85 / maxDim;
         model.scale.setScalar(scale);
         model.position.sub(center.multiplyScalar(scale));
-        model.rotation.set(0.3, Math.PI, 0);
+        // Isometric angle: tilted forward and angled to showcase cockpit, fuselage and wings
+        model.rotation.set(0.45, -0.4, 0.05);
         rootGroup.add(model);
       })
       .catch((err) => {
@@ -423,15 +421,15 @@ export const Spacecraft3D: React.FC<Spacecraft3DProps> = ({ hp, isExploding, isD
 
       if (rootGroup) {
         if (isExploding) {
-          rootGroup.scale.setScalar(1.35 + Math.sin(t * 35) * 0.15);
-          rootGroup.rotation.y += 0.15;
-          rootGroup.position.x = (Math.random() - 0.5) * 0.09;
-          rootGroup.position.y = (Math.random() - 0.5) * 0.09;
+          rootGroup.scale.setScalar(1.25 + Math.sin(t * 30) * 0.1);
+          rootGroup.position.x = (Math.random() - 0.5) * 0.06;
+          rootGroup.position.y = (Math.random() - 0.5) * 0.06;
+          rootGroup.rotation.set(0, 0, (Math.random() - 0.5) * 0.08);
         } else {
           rootGroup.scale.setScalar(1.0);
-          rootGroup.position.set(0, Math.sin(t * 2.2) * 0.06, 0);
-          rootGroup.rotation.y = Math.PI + Math.sin(t * 1.5) * 0.35;
-          rootGroup.rotation.z = Math.sin(t * 2.0) * 0.08;
+          // Gentle floating hover without axial spinning
+          rootGroup.position.set(0, Math.sin(t * 2.0) * 0.04, 0);
+          rootGroup.rotation.set(0, 0, Math.sin(t * 1.5) * 0.03);
         }
       }
 
