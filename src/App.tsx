@@ -273,16 +273,18 @@ function playCleanSound(type = 'success', enabled = true) {
   if (!enabled) return;
   try {
     soundManager.setMuted(!enabled);
-    if (type === 'slash') {
-      soundManager.playMeteorShatterSound();
+    if (type === 'slash' || type === 'meteor') {
+      soundManager.playCrystalSmashSound();
     } else if (type === 'warp' || type === 'dock') {
-      soundManager.playWarpGateSound();
+      soundManager.playEnergyDockSound();
+    } else if (type === 'rocket' || type === 'success') {
+      soundManager.playRocketLaunchSound();
     } else if (type === 'complete') {
       soundManager.playFanfare();
     } else if (type === 'warning') {
       soundManager.playDistanceWarningSound();
     } else {
-      soundManager.playSuccessChime();
+      soundManager.playRocketLaunchSound();
     }
   } catch (err) {
     console.warn('Audio synthesis error:', err);
@@ -618,10 +620,10 @@ export default function AeroFitApp() {
         soundManager.stopChargingTone();
         playCleanSound(
           selectedExercise === 'crosscrunch'
-            ? 'slash'
+            ? 'meteor'
             : selectedExercise === 'sidelunge'
-            ? 'warp'
-            : 'success',
+            ? 'dock'
+            : 'rocket',
           soundEnabled
         );
 
@@ -709,7 +711,7 @@ export default function AeroFitApp() {
       } else {
         const pct = Math.min(99, Math.max(10, Math.round(((clampedPrimary - 10) / Math.max(1, min - 10)) * 100)));
         if (soundEnabled && !hasScoredRepRef.current && isRunning) {
-          soundManager.updateChargingTone(pct / 100, true);
+          soundManager.updateChargingTone(pct / 100, true, selectedExercise);
         }
         const chgMsg = isDemoMode
           ? `สาธิตชาร์จพลังงาน ${pct}% (เป้าหมาย ${min}°–${max}°)`
