@@ -153,14 +153,18 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
 
     // Groups positioned on the right vertical lane
     const mothershipGroup = new THREE.Group();
-    mothershipGroup.position.set(laneX, 1.35, 0);
+    mothershipGroup.position.set(laneX, 1.75, 0);
     scene.add(mothershipGroup);
 
     const rocketGroup = new THREE.Group();
     rocketGroup.position.set(laneX, -0.85, 0);
     scene.add(rocketGroup);
 
-    // Exhaust flame cone pinned as direct child of rocketGroup at (0, -0.45, 0)
+    // Rocket Assembly container
+    const rocketAssembly = new THREE.Group();
+    rocketGroup.add(rocketAssembly);
+
+    // Exhaust flame cone placed directly underneath the centered rocket assembly base
     const flameGeo = new THREE.ConeGeometry(0.12, 0.45, 16);
     const flameMat = new THREE.MeshBasicMaterial({
       color: 0xf97316,
@@ -168,14 +172,16 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
       opacity: 0.85,
     });
     const flameMesh = new THREE.Mesh(flameGeo, flameMat);
+    // Tip points DOWN, wide base at rocket nozzle
     flameMesh.rotation.x = Math.PI;
-    flameMesh.position.set(0, -0.45, 0);
+    flameMesh.position.set(0, -0.56, 0);
     rocketGroup.add(flameMesh);
 
-    // Targeting Laser Line centered at X=0 relative to rocketGroup, extending up to mothership
-    const laserTravelDist = 2.2; // from -0.85 to 1.35
+    // Targeting Laser Line centered at X=0, Z=0 directly from rocket tip to mothership
+    // Distance from rocket (-0.85) to mothership (1.75) is 2.60 units
+    const laserTravelDist = 2.60;
     const lineGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0.25, 0),
+      new THREE.Vector3(0, 0.55, 0),
       new THREE.Vector3(0, laserTravelDist, 0),
     ]);
     const lineMat = new THREE.LineDashedMaterial({
@@ -214,28 +220,34 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
       blending: THREE.AdditiveBlending,
     });
     const burstPoints = new THREE.Points(burstGeo, burstMat);
-    burstPoints.position.set(laneX, 1.35, 0);
+    burstPoints.position.set(laneX, 1.75, 0);
     scene.add(burstPoints);
 
     let isDisposed = false;
-    let mothershipModel: THREE.Group | null = null;
-    let rocketModel: THREE.Group | null = null;
 
-    // Load Mothership
+    // Load Mothership with Two-Group true centering (inner offset + pivot scale/rotation)
     loadCachedGLTF('/models/craft_speederA.glb')
       .catch(() => loadCachedGLTF('/models/craft_racer.glb'))
       .then((gltfScene) => {
         if (isDisposed) { disposeHierarchy(gltfScene); return; }
-        mothershipModel = gltfScene;
-        const box = new THREE.Box3().setFromObject(mothershipModel);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
+        const rawBox = new THREE.Box3().setFromObject(gltfScene);
+        const center = rawBox.getCenter(new THREE.Vector3());
+        const size = rawBox.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
         const scale = 0.85 / maxDim;
-        mothershipModel.scale.setScalar(scale);
-        mothershipModel.position.sub(center.multiplyScalar(scale));
-        mothershipModel.rotation.set(0.35, -0.45, 0);
-        mothershipGroup.add(mothershipModel);
+
+        // Inner group cancels out model vertex offset to center at (0,0,0)
+        const inner = new THREE.Group();
+        inner.position.copy(center).multiplyScalar(-1);
+        inner.add(gltfScene);
+
+        // Pivot group applies scale and pitch centered at (0,0,0)
+        const pivot = new THREE.Group();
+        pivot.scale.setScalar(scale);
+        pivot.rotation.set(0.28, 0, 0); // Tilts gently down towards player, perfectly centered on X
+        pivot.add(inner);
+
+        mothershipGroup.add(pivot);
       })
       .catch(() => {
         const fGroup = new THREE.Group();
@@ -248,40 +260,87 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
         dome.position.y = 0.07;
         fGroup.add(disk);
         fGroup.add(dome);
-        fGroup.rotation.set(0.35, -0.45, 0);
+        fGroup.rotation.set(0.28, 0, 0);
         mothershipGroup.add(fGroup);
-        mothershipModel = fGroup;
       });
 
-    // Load Rocket
+    // Helper to build full aerodynamic rocket on top of base
+    const buildFullRocket = (baseMeshOrGroup: THREE.Object3D) => {
+      // 1. Base (gltf or procedural fins)
+      rocketAssembly.add(baseMeshOrGroup);
+
+      // 2. Aerodynamic Fuselage (mid section)
+      const fuseGeo = new THREE.CylinderGeometry(0.14, 0.16, 0.32, 24);
+      const fuseMat = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        metalness: 0.7,
+        roughness: 0.25,
+      });
+      const fuse = new THREE.Mesh(fuseGeo, fuseMat);
+      fuse.position.y = 0.40;
+      rocketAssembly.add(fuse);
+
+      // Accent ring
+      const ringGeo = new THREE.TorusGeometry(0.145, 0.015, 12, 24);
+      const ringMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, emissive: 0x0284c7 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.30;
+      rocketAssembly.add(ring);
+
+      // 3. Sharp Nose Cone (top)
+      const noseGeo = new THREE.ConeGeometry(0.14, 0.28, 24);
+      const noseMat = new THREE.MeshStandardMaterial({
+        color: 0x0ea5e9,
+        metalness: 0.8,
+        roughness: 0.2,
+      });
+      const nose = new THREE.Mesh(noseGeo, noseMat);
+      nose.position.y = 0.70;
+      rocketAssembly.add(nose);
+
+      // Cockpit Viewport
+      const portGeo = new THREE.SphereGeometry(0.045, 16, 16);
+      const portMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0284c7,
+        emissiveIntensity: 1.5,
+      });
+      const port = new THREE.Mesh(portGeo, portMat);
+      port.position.set(0, 0.44, 0.14);
+      rocketAssembly.add(port);
+
+      // Center the whole rocket assembly around (0, 0, 0)
+      rocketAssembly.position.set(0, -0.28, 0);
+    };
+
+    // Load Rocket base and complete assembly
     loadCachedGLTF('/models/rocket_baseA.glb')
       .then((gltfScene) => {
         if (isDisposed) { disposeHierarchy(gltfScene); return; }
-        rocketModel = gltfScene;
-        const box = new THREE.Box3().setFromObject(rocketModel);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 0.72 / maxDim;
-        rocketModel.scale.setScalar(scale);
-        rocketModel.position.sub(center.multiplyScalar(scale));
-        rocketModel.rotation.set(0.3, -0.4, 0);
-        rocketGroup.add(rocketModel);
+        const rawBox = new THREE.Box3().setFromObject(gltfScene);
+        const center = rawBox.getCenter(new THREE.Vector3());
+        const size = rawBox.getSize(new THREE.Vector3());
+        const scale = 0.52 / Math.max(size.x, size.y, size.z);
+
+        const inner = new THREE.Group();
+        inner.position.copy(center).multiplyScalar(-1);
+        inner.add(gltfScene);
+
+        const basePivot = new THREE.Group();
+        basePivot.scale.setScalar(scale);
+        basePivot.add(inner);
+
+        buildFullRocket(basePivot);
       })
       .catch(() => {
-        const rGroup = new THREE.Group();
-        const bodyGeo = new THREE.CylinderGeometry(0.14, 0.18, 0.55, 16);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        const noseGeo = new THREE.ConeGeometry(0.14, 0.3, 16);
-        const noseMat = new THREE.MeshStandardMaterial({ color: 0x14b8a6 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        const nose = new THREE.Mesh(noseGeo, noseMat);
-        nose.position.y = 0.42;
-        rGroup.add(body);
-        rGroup.add(nose);
-        rGroup.rotation.set(0.3, -0.4, 0);
-        rocketGroup.add(rGroup);
-        rocketModel = rGroup;
+        // Procedural Base Fallback
+        const baseGroup = new THREE.Group();
+        const bGeo = new THREE.CylinderGeometry(0.16, 0.20, 0.35, 16);
+        const bMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 });
+        const bMesh = new THREE.Mesh(bGeo, bMat);
+        baseGroup.add(bMesh);
+        buildFullRocket(baseGroup);
       });
 
     // ResizeObserver — recalc frustum + lane X on resize
@@ -313,14 +372,14 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
       const { chargePercent, isLaunched, isHit } = propsRef.current;
       const isCharging = chargePercent > 15;
 
-      // Always keep mothership + burst at current responsive laneX
-      burstPoints.position.x = laneX;
+      // Always keep mothership + burst at current responsive laneX and raised Y=1.75
+      burstPoints.position.set(laneX, 1.75, 0);
 
-      // 1. Mothership: gentle hover, shake on hit
+      // 1. Mothership: gentle hover at Y=1.75, shake on hit
       if (isHit) {
         mothershipGroup.position.set(
           laneX + (Math.random() - 0.5) * 0.08,
-          1.35 + (Math.random() - 0.5) * 0.08,
+          1.75 + (Math.random() - 0.5) * 0.08,
           0
         );
         if (burstAge > 1.0) {
@@ -335,7 +394,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
           burstMat.opacity = 1.0;
         }
       } else {
-        mothershipGroup.position.set(laneX, 1.35 + Math.sin(t * 2.0) * 0.035, 0);
+        mothershipGroup.position.set(laneX, 1.75 + Math.sin(t * 2.0) * 0.035, 0);
       }
 
       // Animate Explosion Particles
@@ -357,7 +416,8 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
       if (isLaunched || isHit) {
         laserLine.visible = false;
         launchProgress = Math.min(launchProgress + 0.065, 1.0);
-        const currentY = -0.85 + launchProgress * 2.2;
+        // Translate from -0.85 up to 1.75 (distance 2.60 units)
+        const currentY = -0.85 + launchProgress * 2.60;
         rocketGroup.position.set(laneX, currentY, 0);
         flameMesh.visible = true;
         flameMesh.scale.set(1.5, 2.0, 1.5);
