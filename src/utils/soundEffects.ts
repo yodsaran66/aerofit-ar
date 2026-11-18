@@ -27,6 +27,47 @@ class SoundManager {
     return this.muted;
   }
 
+
+  public playChargeTick(progress: number) {
+    if (this.muted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    const freq = 280 + Math.min(1, Math.max(0, progress)) * 520;
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  public playSuccessHit() {
+    this.playSuccessChime();
+  }
+
+  public playSwitchTarget() {
+    if (this.muted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(660, now + 0.12);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
   // Beep for countdown
   public playBeep(frequency = 440, duration = 0.15) {
     if (this.muted) return;
