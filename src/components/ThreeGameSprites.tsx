@@ -229,19 +229,22 @@ export const Rocket3D: React.FC<Rocket3DProps> = ({ chargePercent, isFlying }) =
 
       // Tremble / Vibration & Launch Animation
       if (model) {
+        const squatDepth = chargePercent / 100;
         if (isFlying) {
-          rootGroup.rotation.y += 0.08;
-          rootGroup.rotation.z = Math.sin(t * 15) * 0.05;
-          rootGroup.position.set(0, Math.sin(t * 10) * 0.04, 0);
-        } else if (chargePercent > 25) {
-          // Subtle rocket tremble / engine vibration proportional to squat depth
-          const shakeIntensity = (chargePercent / 100) * 0.035;
+          // Launch upward translation
+          rootGroup.position.y = Math.min((rootGroup.position.y || 0) + 0.12, 3.2);
+          rootGroup.rotation.y += 0.1;
+          rootGroup.rotation.z = Math.sin(t * 15) * 0.04;
+        } else if (chargePercent > 20) {
+          // Charging squat: drop Y proportional to squat depth + vibration
+          const shakeIntensity = squatDepth * 0.035;
+          const descendY = -squatDepth * 0.45;
           rootGroup.position.x = Math.sin(t * 50) * shakeIntensity;
-          rootGroup.position.y = Math.sin(t * 3) * 0.03 + Math.cos(t * 45) * shakeIntensity;
+          rootGroup.position.y = descendY + Math.cos(t * 45) * shakeIntensity;
           rootGroup.rotation.y = Math.PI / 4 + Math.sin(t * 2) * 0.05;
           rootGroup.rotation.z = Math.sin(t * 40) * (shakeIntensity * 0.8);
         } else {
-          // Gentle idle hover
+          // Return to idle hover
           rootGroup.position.set(0, Math.sin(t * 2.5) * 0.03, 0);
           rootGroup.rotation.y = Math.PI / 4 + Math.sin(t * 1.5) * 0.06;
           rootGroup.rotation.z = Math.sin(t * 2) * 0.02;
@@ -476,10 +479,10 @@ interface PortalGate3DProps {
   chargePercent?: number;
 }
 
-export const PortalGate3D: React.FC<PortalGate3DProps> = ({ active, hit }) => {
+export const PortalGate3D: React.FC<PortalGate3DProps> = ({ active, hit, side, chargePercent = 0 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const propsRef = useRef({ active, hit });
-  propsRef.current = { active, hit };
+  const propsRef = useRef({ active, hit, side, chargePercent });
+  propsRef.current = { active, hit, side, chargePercent };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -513,6 +516,19 @@ export const PortalGate3D: React.FC<PortalGate3DProps> = ({ active, hit }) => {
 
     const rootGroup = new THREE.Group();
     scene.add(rootGroup);
+
+    // Dynamic charging energy ring
+    const ringGeo = new THREE.TorusGeometry(0.55, 0.045, 8, 32);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 1.5,
+      transparent: true,
+      opacity: 0,
+    });
+    const chargingRing = new THREE.Mesh(ringGeo, ringMat);
+    chargingRing.rotation.x = Math.PI / 2;
+    rootGroup.add(chargingRing);
 
     // Swirling Space Warp Portal Particles
     const portalCount = 35;
@@ -557,6 +573,8 @@ export const PortalGate3D: React.FC<PortalGate3DProps> = ({ active, hit }) => {
         const scale = 1.55 / maxDim;
         model.scale.setScalar(scale);
         model.position.sub(center.multiplyScalar(scale));
+        // Angled 35-45 degrees inward toward player center
+        model.rotation.y = propsRef.current.side === 'left' ? Math.PI * 0.68 : Math.PI * 0.32;
         rootGroup.add(model);
       })
       .catch((err) => {
@@ -599,18 +617,35 @@ export const PortalGate3D: React.FC<PortalGate3DProps> = ({ active, hit }) => {
         portalMat.size = 0.05;
       }
 
+      // Animate charging ring with chargePercent
+      const cp = propsRef.current.chargePercent || 0;
+      if (cp > 5) {
+        chargingRing.visible = true;
+        const ringScale = 0.5 + (cp / 100) * 1.1;
+        chargingRing.scale.setScalar(ringScale);
+        ringMat.opacity = 0.35 + (cp / 100) * 0.65;
+        ringMat.emissiveIntensity = 1.0 + (cp / 100) * 3.0;
+        chargingRing.rotation.z += active ? 0.03 + (cp / 100) * 0.05 : 0.01;
+      } else {
+        chargingRing.visible = false;
+      }
+
       if (rootGroup) {
         if (hit) {
-          rootGroup.rotation.y += 0.09;
-          rootGroup.scale.setScalar(1.25 + Math.sin(t * 18) * 0.1);
+          rootGroup.rotation.y += 0.22; // High-speed spin on hit
+          rootGroup.scale.setScalar(1.35 + Math.sin(t * 20) * 0.12);
+          ringMat.emissiveIntensity = 4.5;
+          ringMat.color.setHex(0xffffff);
         } else if (active) {
           rootGroup.rotation.y += 0.04;
-          rootGroup.scale.setScalar(1.08 + Math.sin(t * 4) * 0.06);
+          rootGroup.scale.setScalar(1.15 + Math.sin(t * 4) * 0.06);
           rootGroup.position.y = Math.sin(t * 2) * 0.05;
+          ringMat.color.setHex(0x38bdf8);
         } else {
           rootGroup.rotation.y += 0.012;
-          rootGroup.scale.setScalar(0.9);
+          rootGroup.scale.setScalar(0.95);
           rootGroup.position.y = 0;
+          ringMat.color.setHex(0x0284c7);
         }
       }
 
@@ -623,6 +658,8 @@ export const PortalGate3D: React.FC<PortalGate3DProps> = ({ active, hit }) => {
       isDisposed = true;
       cancelAnimationFrame(rafId);
       disposeHierarchy(scene);
+      ringGeo.dispose();
+      ringMat.dispose();
       portalGeo.dispose();
       portalMat.dispose();
       renderer.dispose();
@@ -750,6 +787,7 @@ export const MeteorTarget3D: React.FC<MeteorTarget3DProps> = ({ isHit, active, b
     let rafId = 0;
     const clock = new THREE.Clock();
     let shatterAge = 999;
+    const burstRef = { age: 0, wasHit: false };
 
     const animate = () => {
       rafId = requestAnimationFrame(animate);
@@ -798,18 +836,50 @@ export const MeteorTarget3D: React.FC<MeteorTarget3DProps> = ({ isHit, active, b
 
       if (rootGroup) {
         if (isHit) {
-          rootGroup.rotation.y += 0.12;
-          rootGroup.rotation.x += 0.08;
-          rootGroup.scale.setScalar(1.35 + Math.sin(t * 25) * 0.15);
-        } else if (active) {
-          rootGroup.rotation.y += 0.028;
-          rootGroup.rotation.x = Math.sin(t * 1.5) * 0.18;
-          rootGroup.position.y = targetYOffset + Math.sin(t * 2.5) * 0.07;
-          rootGroup.scale.setScalar(1.08 + Math.sin(t * 3.5) * 0.06);
+          // Burst & Shatter fly-out: rise upward and expand fast
+          if (!burstRef.wasHit) {
+            burstRef.age = 0;
+            burstRef.wasHit = true;
+          }
+          burstRef.age = Math.min(burstRef.age + 0.05, 1.0);
+          const bf = burstRef.age;
+          rootGroup.position.y = targetYOffset + bf * 2.2;
+          rootGroup.scale.setScalar(1.2 + bf * 2.2);
+          rootGroup.rotation.y += 0.22;
+          rootGroup.rotation.x += 0.15;
+          rootGroup.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mat = (child as THREE.Mesh).material;
+              if (mat && !Array.isArray(mat)) {
+                mat.transparent = true;
+                mat.opacity = Math.max(0, 1.0 - bf * 1.3);
+              }
+            }
+          });
         } else {
-          rootGroup.rotation.y += 0.012;
-          rootGroup.position.y = targetYOffset;
-          rootGroup.scale.setScalar(0.85);
+          // Reset when not hit
+          if (burstRef.wasHit) {
+            burstRef.wasHit = false;
+            burstRef.age = 0;
+            rootGroup.traverse((child) => {
+              if ((child as THREE.Mesh).isMesh) {
+                const mat = (child as THREE.Mesh).material;
+                if (mat && !Array.isArray(mat)) {
+                  mat.opacity = 1.0;
+                }
+              }
+            });
+          }
+          if (active) {
+            rootGroup.rotation.y += 0.035;
+            rootGroup.rotation.x = Math.sin(t * 1.5) * 0.18;
+            rootGroup.position.y = targetYOffset + Math.sin(t * 2.5) * 0.07;
+            rootGroup.scale.setScalar(1.2 + Math.sin(t * 3.5) * 0.07);
+          } else {
+            rootGroup.rotation.y += 0.015;
+            rootGroup.position.y = targetYOffset;
+            rootGroup.scale.setScalar(0.95);
+          }
         }
       }
 

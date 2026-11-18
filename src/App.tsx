@@ -1220,12 +1220,15 @@ export default function AeroFitApp() {
           <div className="absolute top-0 bottom-0 right-3 sm:right-6 w-28 sm:w-32 flex flex-col items-center">
             <div className="absolute top-6 flex flex-col items-center z-20">
               <Spacecraft3D hp={bossHp} isExploding={hitEffect} isDemo={isDemo} />
-              {floatingPopup && (
-                <span className="mt-2 bg-amber-400 text-slate-950 font-black text-xs px-3 py-1.5 rounded-full shadow-xl animate-bounce whitespace-nowrap border border-white">
+            </div>
+
+            {floatingPopup && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap">
+                <span className="bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-xl shadow-lg border border-white/70 backdrop-blur-sm animate-bounce">
                   {floatingPopup}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
 
             <div
               className={`absolute w-2 rounded-full origin-bottom transition-all duration-150 ease-out z-10 ${
@@ -1270,14 +1273,14 @@ export default function AeroFitApp() {
           </div>
 
           {floatingPopup && (
-            <div className={`absolute top-1/4 z-30 transition-all duration-200 ${isLeft ? 'left-8 sm:left-16' : 'right-8 sm:right-16'}`}>
-              <span className="bg-amber-400 text-slate-950 font-black text-xs sm:text-sm px-4 py-2 rounded-2xl shadow-2xl animate-bounce whitespace-nowrap border-2 border-white flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 fill-current" /> {floatingPopup}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap">
+              <span className="bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-xl shadow-lg border border-white/70 backdrop-blur-sm flex items-center gap-1.5 animate-bounce">
+                <Sparkles className="w-3.5 h-3.5 fill-current" /> {floatingPopup}
               </span>
             </div>
           )}
 
-          <div className={`absolute left-4 sm:left-6 top-4 sm:top-6 flex flex-col items-center gap-1.5 transition-all duration-300 z-30 ${
+          <div className={`absolute left-[12%] sm:left-[16%] top-[34%] flex flex-col items-center gap-1.5 transition-all duration-300 z-30 ${
             isLeft ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
           }`}>
             <span className={`text-[10px] sm:text-xs font-black tracking-wider px-3 py-1 rounded-full shadow-md transition-colors ${
@@ -1291,7 +1294,7 @@ export default function AeroFitApp() {
             </span>
           </div>
 
-          <div className={`absolute right-4 sm:right-6 top-4 sm:top-6 flex flex-col items-center gap-1.5 transition-all duration-300 z-30 ${
+          <div className={`absolute right-[12%] sm:right-[16%] top-[34%] flex flex-col items-center gap-1.5 transition-all duration-300 z-30 ${
             !isLeft ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
           }`}>
             <span className={`text-[10px] sm:text-xs font-black tracking-wider px-3 py-1 rounded-full shadow-md transition-colors ${
@@ -1358,17 +1361,15 @@ export default function AeroFitApp() {
         </div>
 
         {floatingPopup && (
-          <div className={`absolute top-1/4 z-30 transition-all duration-200 ${
-            isLeftTarget ? 'left-8 sm:left-20' : 'right-8 sm:right-20'
-          }`}>
-            <div className="bg-amber-400 text-slate-950 font-black text-xs sm:text-sm px-4 py-2 rounded-2xl shadow-2xl animate-bounce whitespace-nowrap border-2 border-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-slate-950 fill-current" />
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 whitespace-nowrap">
+            <div className="bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-xl shadow-lg border border-white/70 backdrop-blur-sm flex items-center gap-1.5 animate-bounce">
+              <Sparkles className="w-3.5 h-3.5 text-slate-950 fill-current" />
               <span>{floatingPopup}</span>
             </div>
           </div>
         )}
 
-        <div className={`absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
+        <div className={`absolute left-[24%] sm:left-[26%] top-[55%] -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
           isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
         }`}>
           <div className="relative my-1">
@@ -1400,7 +1401,7 @@ export default function AeroFitApp() {
           </div>
         </div>
 
-        <div className={`absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
+        <div className={`absolute right-[24%] sm:right-[26%] top-[55%] -translate-y-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-30 ${
           !isLeftTarget ? 'scale-105 opacity-100' : 'scale-90 opacity-40'
         }`}>
           <div className="relative my-1">
