@@ -1263,8 +1263,8 @@ export default function AeroFitApp() {
 
         {/* 1. SQUAT — Rocket Strike 3D Scene */}
         {selectedExercise === 'squat' && (
-          <div className="absolute inset-0 flex justify-end items-center pr-2 sm:pr-8">
-            <div className="w-48 sm:w-64 h-[90%] relative">
+          <div className="absolute inset-0 flex justify-end items-center pr-1 sm:pr-4">
+            <div className="w-36 sm:w-48 h-[95%] relative">
               <SquatRocketStrike3D
                 chargePercent={chargePercent}
                 isLaunched={rocketFlying}

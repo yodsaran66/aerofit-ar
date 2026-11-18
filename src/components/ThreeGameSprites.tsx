@@ -4,15 +4,18 @@
 //
 // Exercise 3D Components:
 // 1. Squat (Rocket Strike):
-//    - SquatRocketStrike3D: Player rocket (bottom, Y=-0.75, scale=0.4) + Target mothership (top, Y=1.15, scale=0.45)
+//    - SquatRocketStrike3D: Player rocket (bottom, Y=-0.85, X=0) + Target mothership (top, Y=1.35, X=0)
+//    - Positioned at right edge safe zone (container at far right, clear of player body)
+//    - Exhaust flame pinned as child of rocketGroup at (0, -0.45, 0)
+//    - Targeting laser dashed line centered at X=0
 // 2. Side Lunge (Side Pad Reflector):
-//    - SidePadReflector3D: Ground energy pad (Y=-1.05) + floating top turret reflector (Y=1.15)
+//    - SidePadReflector3D: Ground energy pad (Y=-1.05) at X=±1.8 + top turret reflector (Y=1.2) at X=±1.8
 // 3. Standing Cross Crunch (Knee Meteor Smash):
-//    - KneeMeteorSmash3D: Floating meteor at target knee height + real-time knee reticle
+//    - KneeMeteorSmash3D: Floating meteor at target knee height at X=±1.25 + real-time knee reticle
 //
 // Shared features:
 // - PerspectiveCamera (fov: 45) with ResizeObserver for desktop & mobile
-// - AmbientLight (0.8) + DirectionalLight (1.2) + Rim lighting
+// - AmbientLight (0.85) + DirectionalLight (1.3) + Rim lighting
 // - Automatic Procedural Geometry fallbacks if GLB load fails
 // - Complete disposal of geometries, materials, textures & cancelAnimationFrame on unmount
 // ==========================================
@@ -65,7 +68,7 @@ function disposeHierarchy(obj: THREE.Object3D) {
 
 // =========================================================================
 // 1. SQUAT — "ยิงจรวดทำลายยานแม่" (Rocket Strike)
-// Target Mothership (Y: 1.15) + Player Rocket (Y: -0.75) in right safe zone
+// Target Mothership (Y: 1.35) + Player Rocket (Y: -0.85) in right safe zone
 // =========================================================================
 interface SquatRocketStrike3DProps {
   chargePercent: number; // 0 - 100
@@ -88,8 +91,8 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    let width = container.clientWidth || 180;
-    let height = container.clientHeight || 340;
+    let width = container.clientWidth || 160;
+    let height = container.clientHeight || 360;
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
@@ -105,7 +108,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50);
-    camera.position.set(0, 0.2, 5.0);
+    camera.position.set(0, 0.25, 4.8);
 
     // Standard Lighting
     const ambient = new THREE.AmbientLight(0xffffff, 0.85);
@@ -121,14 +124,14 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
 
     // Groups
     const mothershipGroup = new THREE.Group();
-    mothershipGroup.position.set(0, 1.15, 0);
+    mothershipGroup.position.set(0, 1.35, 0);
     scene.add(mothershipGroup);
 
     const rocketGroup = new THREE.Group();
-    rocketGroup.position.set(0, -0.75, 0);
+    rocketGroup.position.set(0, -0.85, 0);
     scene.add(rocketGroup);
 
-    // Exhaust flame cone below rocket
+    // Exhaust flame cone pinned as direct child of rocketGroup directly under center (0, -0.45, 0)
     const flameGeo = new THREE.ConeGeometry(0.12, 0.45, 16);
     const flameMat = new THREE.MeshBasicMaterial({
       color: 0xf97316,
@@ -137,13 +140,13 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
     });
     const flameMesh = new THREE.Mesh(flameGeo, flameMat);
     flameMesh.rotation.x = Math.PI;
-    flameMesh.position.y = -0.32;
+    flameMesh.position.set(0, -0.45, 0);
     rocketGroup.add(flameMesh);
 
-    // Targeting Laser Line from rocket to mothership
+    // Targeting Laser Line centered at X=0, straight up to mothership (Y: 1.35)
     const lineGeo = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 0.25, 0),
-      new THREE.Vector3(0, 1.85, 0),
+      new THREE.Vector3(0, 2.2, 0),
     ]);
     const lineMat = new THREE.LineDashedMaterial({
       color: 0xef4444,
@@ -155,7 +158,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
     laserLine.computeLineDistances();
     rocketGroup.add(laserLine);
 
-    // Explosion Particle Burst
+    // Explosion Particle Burst at mothership location
     const burstCount = 45;
     const burstGeo = new THREE.BufferGeometry();
     const burstPos = new Float32Array(burstCount * 3);
@@ -183,7 +186,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
       blending: THREE.AdditiveBlending,
     });
     const burstPoints = new THREE.Points(burstGeo, burstMat);
-    burstPoints.position.set(0, 1.15, 0);
+    burstPoints.position.set(0, 1.35, 0);
     scene.add(burstPoints);
 
     let isDisposed = false;
@@ -203,19 +206,18 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 0.9 / maxDim;
+        const scale = 0.85 / maxDim;
         mothershipModel.scale.setScalar(scale);
         mothershipModel.position.sub(center.multiplyScalar(scale));
-        // Isometric non-spinning angle
         mothershipModel.rotation.set(0.35, -0.45, 0);
         mothershipGroup.add(mothershipModel);
       })
       .catch(() => {
         // Procedural Mothership Fallback
         const fGroup = new THREE.Group();
-        const diskGeo = new THREE.CylinderGeometry(0.5, 0.55, 0.14, 24);
+        const diskGeo = new THREE.CylinderGeometry(0.45, 0.5, 0.14, 24);
         const diskMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5, roughness: 0.3 });
-        const domeGeo = new THREE.SphereGeometry(0.25, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const domeGeo = new THREE.SphereGeometry(0.22, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
         const domeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7 });
         const disk = new THREE.Mesh(diskGeo, diskMat);
         const dome = new THREE.Mesh(domeGeo, domeMat);
@@ -239,7 +241,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 0.75 / maxDim;
+        const scale = 0.72 / maxDim;
         rocketModel.scale.setScalar(scale);
         rocketModel.position.sub(center.multiplyScalar(scale));
         rocketModel.rotation.set(0.3, -0.4, 0);
@@ -286,11 +288,11 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
       const { chargePercent, isLaunched, isHit } = propsRef.current;
       const isCharging = chargePercent > 15;
 
-      // 1. Mothership animation: Gentle hover, flash red on hit
+      // 1. Mothership animation: Gentle hover at Y=1.35, flash red on hit
       if (isHit) {
         mothershipGroup.position.set(
           (Math.random() - 0.5) * 0.08,
-          1.15 + (Math.random() - 0.5) * 0.08,
+          1.35 + (Math.random() - 0.5) * 0.08,
           0
         );
         if (burstAge > 1.0) {
@@ -305,7 +307,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
           burstMat.opacity = 1.0;
         }
       } else {
-        mothershipGroup.position.set(0, 1.15 + Math.sin(t * 2.0) * 0.04, 0);
+        mothershipGroup.position.set(0, 1.35 + Math.sin(t * 2.0) * 0.035, 0);
       }
 
       // Animate Explosion Particles
@@ -325,12 +327,13 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
 
       // 2. Rocket State Machine
       if (isLaunched || isHit) {
-        // Rocket flying upward along Y axis to collide with mothership
+        // Rocket flying upward along Y axis to collide with mothership at 1.35
         laserLine.visible = false;
-        launchProgress = Math.min(launchProgress + 0.07, 1.0);
-        // Translate from -0.75 up to 1.15
-        const currentY = -0.75 + launchProgress * 1.9;
+        launchProgress = Math.min(launchProgress + 0.065, 1.0);
+        // Translate from -0.85 up to 1.35 (total distance 2.2 units)
+        const currentY = -0.85 + launchProgress * 2.2;
         rocketGroup.position.set(0, currentY, 0);
+        flameMesh.visible = true;
         flameMesh.scale.set(1.5, 2.0, 1.5);
         flameMat.color.setHex(0x38bdf8);
       } else {
@@ -340,7 +343,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
         if (isCharging) {
           // Drop down proportional to squat depth (max 0.25 units) + gentle shake
           const squatRatio = chargePercent / 100;
-          const dropY = -0.75 - squatRatio * 0.25;
+          const dropY = -0.85 - squatRatio * 0.25;
           const shake = squatRatio * 0.02;
           rocketGroup.position.set(
             (Math.random() - 0.5) * shake,
@@ -348,7 +351,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
             0
           );
 
-          // Flame grows with depth
+          // Flame grows with depth, attached directly to rocket base
           flameMesh.visible = true;
           const flameScale = 0.6 + squatRatio * 1.0;
           flameMesh.scale.set(flameScale, flameScale * 1.4, flameScale);
@@ -359,7 +362,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
           lineMat.color.setHex(targetColor);
         } else {
           // Idle hover
-          rocketGroup.position.set(0, -0.75 + Math.sin(t * 2.0) * 0.03, 0);
+          rocketGroup.position.set(0, -0.85 + Math.sin(t * 2.0) * 0.03, 0);
           flameMesh.visible = false;
           lineMat.color.setHex(0xef4444);
         }
@@ -394,7 +397,7 @@ export const SquatRocketStrike3D: React.FC<SquatRocketStrike3DProps> = ({
 
 // =========================================================================
 // 2. SIDE LUNGE — "ก้าวเหยียบแท่นสะท้อนพลังงาน" (Side Pad Reflector)
-// Ground Pads (Y: -1.05) at X: ±1.25 + Turret Reflectors (Y: 1.15)
+// Ground Pads (Y: -1.05) at X: ±1.8 + Turret Reflectors (Y: 1.2) at X: ±1.8
 // =========================================================================
 interface SidePadReflector3DProps {
   activeSide: 'left' | 'right';
@@ -442,24 +445,24 @@ export const SidePadReflector3D: React.FC<SidePadReflector3DProps> = ({
     dirLight.position.set(3, 5, 5);
     scene.add(dirLight);
 
-    // Left & Right Ground Pad Groups (x = ±1.25, y = -1.05)
+    // Left & Right Ground Pad Groups widened to x = ±1.8, y = -1.05
     const leftPadGroup = new THREE.Group();
-    leftPadGroup.position.set(-1.25, -1.05, 0);
+    leftPadGroup.position.set(-1.8, -1.05, 0);
     leftPadGroup.rotation.x = 0.35;
     scene.add(leftPadGroup);
 
     const rightPadGroup = new THREE.Group();
-    rightPadGroup.position.set(1.25, -1.05, 0);
+    rightPadGroup.position.set(1.8, -1.05, 0);
     rightPadGroup.rotation.x = 0.35;
     scene.add(rightPadGroup);
 
-    // Top Receiver Turrets (y = 1.15)
+    // Top Receiver Turrets widened to x = ±1.8, y = 1.2
     const leftTurretGroup = new THREE.Group();
-    leftTurretGroup.position.set(-1.25, 1.15, 0);
+    leftTurretGroup.position.set(-1.8, 1.2, 0);
     scene.add(leftTurretGroup);
 
     const rightTurretGroup = new THREE.Group();
-    rightTurretGroup.position.set(1.25, 1.15, 0);
+    rightTurretGroup.position.set(1.8, 1.2, 0);
     scene.add(rightTurretGroup);
 
     // Procedural Pedestal Base + Torus Ring helper
@@ -503,7 +506,7 @@ export const SidePadReflector3D: React.FC<SidePadReflector3DProps> = ({
     rightTurretGroup.add(rightTurret.group);
 
     // Vertical Reflection Energy Beam (Active on 100% Hit)
-    const beamGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.2, 16);
+    const beamGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.25, 16);
     const beamMat = new THREE.MeshBasicMaterial({
       color: 0x2dd4bf,
       transparent: true,
@@ -511,7 +514,7 @@ export const SidePadReflector3D: React.FC<SidePadReflector3DProps> = ({
       blending: THREE.AdditiveBlending,
     });
     const beamMesh = new THREE.Mesh(beamGeo, beamMat);
-    beamMesh.position.set(-1.25, 0.05, 0);
+    beamMesh.position.set(-1.8, 0.08, 0);
     scene.add(beamMesh);
 
     // Expanding charging energy ring around active pad
@@ -562,7 +565,7 @@ export const SidePadReflector3D: React.FC<SidePadReflector3DProps> = ({
       // Animate Expanding Charging Ring
       if (chargePercent > 10) {
         chargeRingMesh.visible = true;
-        const xPos = isLeft ? -1.25 : 1.25;
+        const xPos = isLeft ? -1.8 : 1.8;
         const ringElev = -1.05 + (chargePercent / 100) * 0.8;
         chargeRingMesh.position.set(xPos, ringElev, 0);
         chargeRingMesh.scale.setScalar(0.8 + (chargePercent / 100) * 0.5);
@@ -575,7 +578,7 @@ export const SidePadReflector3D: React.FC<SidePadReflector3DProps> = ({
       // Hit Reflection Energy Beam
       if (isHit) {
         beamMesh.visible = true;
-        beamMesh.position.x = isLeft ? -1.25 : 1.25;
+        beamMesh.position.x = isLeft ? -1.8 : 1.8;
         beamMat.opacity = 0.95;
         beamMesh.scale.x = 1.0 + Math.sin(t * 30) * 0.3;
       } else {
@@ -609,7 +612,7 @@ export const SidePadReflector3D: React.FC<SidePadReflector3DProps> = ({
 
 // =========================================================================
 // 3. STANDING CROSS CRUNCH — "ยกเข่ากระแทกอุกกาบาต" (Knee Meteor Smash)
-// Meteor Target at Knee Height (X: ±0.65) + Real-time Knee Target Reticle
+// Meteor Target at Knee Height (Widened to X: ±1.25) + Real-time Knee Target Reticle
 // =========================================================================
 interface KneeMeteorSmash3DProps {
   activeSide: 'left' | 'right';
@@ -665,7 +668,7 @@ export const KneeMeteorSmash3D: React.FC<KneeMeteorSmash3DProps> = ({
     rimLight.position.set(-3, -3, 2);
     scene.add(rimLight);
 
-    // Meteor Group (X: ±0.65, Y: adjusted for BMI knee target)
+    // Meteor Group (Widened to X: ±1.25, Y: adjusted for BMI knee target)
     const meteorGroup = new THREE.Group();
     scene.add(meteorGroup);
 
@@ -766,7 +769,8 @@ export const KneeMeteorSmash3D: React.FC<KneeMeteorSmash3DProps> = ({
 
       // Knee target height based on BMI
       const baseTargetY = bmiCategory === 'obese' ? -0.2 : bmiCategory === 'overweight' ? 0.0 : 0.2;
-      const targetX = isLeft ? -0.65 : 0.65;
+      // Widened X to ±1.25 so it sits well outside torso and arms
+      const targetX = isLeft ? -1.25 : 1.25;
 
       meteorGroup.position.set(targetX, baseTargetY + Math.sin(t * 2.5) * 0.04, 0);
 
@@ -775,7 +779,6 @@ export const KneeMeteorSmash3D: React.FC<KneeMeteorSmash3DProps> = ({
       meteorGroup.rotation.y += 0.015;
 
       // Target reticle position tracking knee
-      // Map knee normalized Y (0.3 to 0.8) to 3D scene Y (0.5 to -1.0)
       const mappedKneeY = 1.0 - (kneeY || 0.6) * 2.5;
       reticleGroup.position.set(targetX, Math.max(-1.2, Math.min(1.0, mappedKneeY)), 0);
       reticleMesh.rotation.z += 0.04;
