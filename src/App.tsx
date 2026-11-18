@@ -1261,16 +1261,14 @@ export default function AeroFitApp() {
           </div>
         )}
 
-        {/* 1. SQUAT — Rocket Strike 3D Scene */}
+        {/* 1. SQUAT — Rocket Strike 3D Scene (full viewport overlay, right lane computed internally) */}
         {selectedExercise === 'squat' && (
-          <div className="absolute inset-0 flex justify-end items-center pr-1 sm:pr-4">
-            <div className="w-36 sm:w-48 h-[95%] relative">
-              <SquatRocketStrike3D
-                chargePercent={chargePercent}
-                isLaunched={rocketFlying}
-                isHit={isHit}
-              />
-            </div>
+          <div className="absolute inset-0">
+            <SquatRocketStrike3D
+              chargePercent={chargePercent}
+              isLaunched={rocketFlying}
+              isHit={isHit}
+            />
           </div>
         )}
 
