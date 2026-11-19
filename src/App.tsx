@@ -39,6 +39,7 @@ import {
   MeteorTarget3D, 
   CrystalTarget3D 
 } from './components/ThreeGameSprites';
+import FlatCartoonCoach from './components/FlatCartoonCoach';
 import { soundManager } from './utils/soundEffects';
 
 // ==========================================
@@ -293,6 +294,7 @@ function playCleanSound(type = 'success', enabled = true) {
 
 export default function AeroFitApp() {
   const [screen, setScreen] = useState('landing');
+  const [demoProgress, setDemoProgress] = useState(0);
 
   const [heroHighlightIdx, setHeroHighlightIdx] = useState(0);
   const heroHighlights = [
@@ -741,11 +743,27 @@ export default function AeroFitApp() {
       const simPrimary = Math.round(10 + waveVal * (peakAngle - 4));
       const simSecondary = Math.round(secondary[0] + waveVal * (secondary[1] - secondary[0]));
       const simKnee = Math.round(90 - waveVal * 30);
+
+      // Compute synchronized demo progress for FlatCartoonCoach
+      const isGoingDown = Math.cos(tick) >= 0;
+      let coachProg = 0;
+      if (selectedExercise === 'squat') {
+        coachProg = isGoingDown ? waveVal * 0.5 : 1.0 - waveVal * 0.5;
+      } else {
+        const side = targetSideRef.current;
+        if (side === 'right') {
+          coachProg = isGoingDown ? waveVal * 0.25 : 0.5 - waveVal * 0.25;
+        } else {
+          coachProg = isGoingDown ? 0.5 + waveVal * 0.25 : 1.0 - waveVal * 0.25;
+        }
+      }
+      setDemoProgress(Math.min(1.0, Math.max(0.0, coachProg)));
+
       evaluatePosture(simPrimary, simSecondary, true, targetSideRef.current, simKnee);
     }, 100);
 
     return () => clearInterval(interval);
-  }, [screen, mode, isRunning, manualControl, getActiveTarget, evaluatePosture]);
+  }, [screen, mode, isRunning, manualControl, getActiveTarget, evaluatePosture, selectedExercise]);
 
   const stopCamera = useCallback(() => {
     isCameraActiveRef.current = false;
@@ -2057,32 +2075,29 @@ export default function AeroFitApp() {
               )}
 
               {isDemo && (
-                <div className="relative w-full h-full flex items-center justify-center">
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
                   {renderARGameScene(target, isHit)}
 
-                  <svg viewBox="0 0 240 380" className="w-56 h-full relative z-10 opacity-75 drop-shadow-xl">
-                    <g
-                      stroke={isHit ? '#2DD4BF' : '#94A3B8'}
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle
-                        cx={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 95 : 145) : 120}
-                        cy={selectedExercise === 'squat' ? 65 + currentAngle * 0.35 : 65}
-                        r="16"
-                        fill={isHit ? '#0F766E' : 'none'}
-                        strokeWidth="4"
-                      />
-                      <line x1={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 95 : 145) : 120} y1={selectedExercise === 'squat' ? 82 + currentAngle * 0.35 : 82} x2={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 95 : 145) : 120} y2={selectedExercise === 'squat' ? 175 + currentAngle * 0.35 : 175} />
-                      <line x1={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 65 : 115) : 85} y1={selectedExercise === 'squat' ? 100 + currentAngle * 0.35 : 100} x2={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 125 : 175) : 155} y2={selectedExercise === 'squat' ? 100 + currentAngle * 0.35 : 100} />
-                      <line x1={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 75 : 125) : 95} y1={selectedExercise === 'squat' ? 175 + currentAngle * 0.35 : 175} x2={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 115 : 165) : 145} y2={selectedExercise === 'squat' ? 175 + currentAngle * 0.35 : 175} />
-                      <line x1={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 75 : 125) : 95} y1={selectedExercise === 'squat' ? 175 + currentAngle * 0.35 : 175} x2={selectedExercise === 'sidelunge' && detectedSide === 'left' ? 50 : 75} y2={selectedExercise === 'crosscrunch' && detectedSide === 'left' ? 245 - currentAngle * 0.65 : 245} />
-                      <line x1={selectedExercise === 'sidelunge' && detectedSide === 'left' ? 50 : 75} y1={selectedExercise === 'crosscrunch' && detectedSide === 'left' ? 245 - currentAngle * 0.65 : 245} x2="85" y2={selectedExercise === 'crosscrunch' && detectedSide === 'left' ? 305 - currentAngle * 0.45 : 325} />
-                      <line x1={selectedExercise === 'sidelunge' ? (detectedSide === 'left' ? 115 : 165) : 145} y1={selectedExercise === 'squat' ? 175 + currentAngle * 0.35 : 175} x2={selectedExercise === 'sidelunge' && detectedSide === 'right' ? 190 : 165} y2={selectedExercise === 'crosscrunch' && detectedSide === 'right' ? 245 - currentAngle * 0.65 : 245} />
-                      <line x1={selectedExercise === 'sidelunge' && detectedSide === 'right' ? 190 : 165} y1={selectedExercise === 'crosscrunch' && detectedSide === 'right' ? 245 - currentAngle * 0.65 : 245} x2="155" y2={selectedExercise === 'crosscrunch' && detectedSide === 'right' ? 305 - currentAngle * 0.45 : 325} />
-                    </g>
-                  </svg>
+                  <div className="relative z-10 flex items-center justify-center pointer-events-none drop-shadow-2xl">
+                    <FlatCartoonCoach
+                      exerciseType={
+                        selectedExercise === 'sidelunge'
+                          ? 'side-lunge'
+                          : selectedExercise === 'crosscrunch'
+                          ? 'cross-crunch'
+                          : 'squat'
+                      }
+                      progress={manualControl ? (
+                        selectedExercise === 'squat'
+                          ? Math.min(1, Math.max(0, (currentAngle - 10) / Math.max(1, target.max - 10))) * 0.5
+                          : detectedSide === 'right'
+                          ? Math.min(1, Math.max(0, (currentAngle - 10) / Math.max(1, target.max - 10))) * 0.25
+                          : 0.5 + Math.min(1, Math.max(0, (currentAngle - 10) / Math.max(1, target.max - 10))) * 0.25
+                      ) : demoProgress}
+                      showControls={false}
+                      width={220}
+                    />
+                  </div>
                 </div>
               )}
 
