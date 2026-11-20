@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -410,6 +410,39 @@ export default function AeroFitApp() {
   });
   
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [submittedSurveyUsers, setSubmittedSurveyUsers] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('aerofit_submitted_users') || '[]');
+      const offline = JSON.parse(localStorage.getItem('aerofit_offline_surveys') || '[]');
+      const names = new Set<string>();
+      if (Array.isArray(saved)) saved.forEach((s: string) => names.add(String(s).trim().toLowerCase()));
+      if (Array.isArray(offline)) offline.forEach((item: any) => {
+        if (item.userId) names.add(String(item.userId).trim().toLowerCase());
+      });
+      return Array.from(names);
+    } catch {
+      return [];
+    }
+  });
+
+  // Sync survey data from Google Sheets on mount if available
+  useEffect(() => {
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyZYkjFhrESoR0bgHos96TCFT2ukU2JoKyuU7A9O35L_wKu2JLB3MGYEAtwQ52ihVHbNw/exec';
+    fetch(`${GOOGLE_SCRIPT_URL}?action=read`, { method: 'GET' })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setSurveySubmissions(prev => {
+            const existingIds = new Set(prev.map(p => (p.userId || '').trim().toLowerCase()));
+            const newEntries = data.filter((d: any) => !existingIds.has((d.userId || '').trim().toLowerCase()));
+            return [...prev, ...newEntries];
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback silently to offline and cached survey submissions
+      });
+  }, []);
 
   const [surveySubmissions, setSurveySubmissions] = useState<any[]>(() => {
     const defaultData = [
@@ -480,9 +513,22 @@ export default function AeroFitApp() {
     return `${m}:${s}`;
   };
 
+  const isNameDuplicateInSystem = useMemo(() => {
+    const trimmed = userName.trim().toLowerCase();
+    if (!trimmed) return false;
+    return surveySubmissions.some(
+      s => (s.userId || '').trim().toLowerCase() === trimmed
+    ) || submittedSurveyUsers.some(u => u.toLowerCase() === trimmed);
+  }, [userName, surveySubmissions, submittedSurveyUsers]);
+
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pdpaAccepted || !healthConfirmed) return;
+
+    if (isNameDuplicateInSystem) {
+      alert(`ชื่อ "${userName.trim()}" ถูกใช้งานแล้วในระบบ\nกรุณาใช้ชื่ออื่น หรือเพิ่มอักษรย่อ/ตัวเลขต่อท้ายเพื่อไม่ให้ข้อมูลซ้ำกัน`);
+      return;
+    }
 
     const parsedAge = parseInt(age, 10);
     if (isNaN(parsedAge) || parsedAge < 15 || parsedAge > 50) {
@@ -1164,9 +1210,9 @@ export default function AeroFitApp() {
 
     const isDup = surveySubmissions.some(
       s => (s.userId || '').trim().toLowerCase() === nameToSubmit.toLowerCase()
-    );
+    ) || submittedSurveyUsers.includes(nameToSubmit.toLowerCase());
     if (isDup) {
-      alert(`ชื่อหรือรหัส "${nameToSubmit}" ได้ทำแบบประเมินความพึงพอใจไปแล้วในระบบ ไม่สามารถส่งซ้ำได้ (ห้ามใช้ชื่อซ้ำ)`);
+      setSubmitStatus('success');
       return;
     }
 
@@ -1223,8 +1269,15 @@ export default function AeroFitApp() {
         { id: prev.length + 1, userId: payload.userId, bmiGroup: payload.bmiGroup, d1, d2, d3, total }
       ]);
 
+      setSubmittedSurveyUsers(prev => {
+        const next = [...prev, nameToSubmit.toLowerCase()];
+        try {
+          localStorage.setItem('aerofit_submitted_users', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
       setSubmitStatus('success');
-      setTimeout(() => setSubmitStatus('idle'), 3000);
 
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -1235,8 +1288,15 @@ export default function AeroFitApp() {
         { id: prev.length + 1, userId: payload.userId, bmiGroup: payload.bmiGroup, d1, d2, d3, total }
       ]);
 
-      setSubmitStatus('error');
-      setTimeout(() => setSubmitStatus('idle'), 4000);
+      setSubmittedSurveyUsers(prev => {
+        const next = [...prev, nameToSubmit.toLowerCase()];
+        try {
+          localStorage.setItem('aerofit_submitted_users', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      setSubmitStatus('success');
     }
   };
 
@@ -1570,14 +1630,26 @@ export default function AeroFitApp() {
                   type="text"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                  placeholder="เช่น ผู้เข้าร่วมวิจัย #01"
+                  className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none transition-all ${
+                    isNameDuplicateInSystem
+                      ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10'
+                      : 'border-slate-200/80 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10'
+                  }`}
                   required
                 />
-                {surveySubmissions.some(s => (s.userId || '').trim().toLowerCase() === userName.trim().toLowerCase()) && (
-                  <p className="text-[11px] font-semibold text-amber-600 flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    ชื่อหรือรหัสนี้เคยส่งแบบประเมินความพึงพอใจแล้ว (หากต้องการทำแบบประเมินใหม่ กรุณาใช้ชื่ออื่น)
-                  </p>
+                {isNameDuplicateInSystem && (
+                  <div className="mt-2 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-rose-700 animate-in fade-in slide-in-from-top-1 duration-200 shadow-sm">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-bold text-rose-900">
+                        ชื่อ "${userName.trim()}" ถูกใช้งานแล้วในระบบ
+                      </h4>
+                      <p className="text-[11px] text-rose-600 leading-relaxed font-medium">
+                        กรุณาใช้ชื่ออื่น หรือเพิ่มอักษรย่อ/ตัวเลขต่อท้ายเพื่อไม่ให้ข้อมูลซ้ำกัน
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -1711,10 +1783,23 @@ export default function AeroFitApp() {
 
             <button
               type="submit"
-              disabled={!pdpaAccepted || !healthConfirmed || isAgeInvalid || !age}
-              className="w-full py-4 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold text-sm transition-all active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg"
+              disabled={!pdpaAccepted || !healthConfirmed || isAgeInvalid || !age || !userName.trim() || isNameDuplicateInSystem}
+              className={`w-full py-4 px-6 rounded-2xl font-bold text-sm transition-all active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg ${
+                isNameDuplicateInSystem
+                  ? 'bg-rose-100 text-rose-600 cursor-not-allowed border border-rose-200 shadow-none'
+                  : 'bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white'
+              }`}
             >
-              บันทึกข้อมูลและเข้าสู่เกม AR <ChevronRight className="w-4 h-4" />
+              {isNameDuplicateInSystem ? (
+                <>
+                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  ชื่อ "${userName.trim()}" ถูกใช้งานแล้วในระบบ (กรุณาเปลี่ยนชื่อ)
+                </>
+              ) : (
+                <>
+                  บันทึกข้อมูลและเข้าสู่เกม AR <ChevronRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -2340,8 +2425,10 @@ export default function AeroFitApp() {
     const statTotal = calcStats('total');
 
     const currentUserName = (userData?.name || '').trim();
-    const isSurveyNameDuplicate = !!currentUserName && surveySubmissions.some(
-      s => (s.userId || '').trim().toLowerCase() === currentUserName.toLowerCase()
+    const isSurveyAlreadySubmitted = !!currentUserName && (
+      submitStatus === 'success' ||
+      submittedSurveyUsers.includes(currentUserName.toLowerCase()) ||
+      surveySubmissions.some(s => (s.userId || '').trim().toLowerCase() === currentUserName.toLowerCase())
     );
 
     return (
@@ -2361,31 +2448,46 @@ export default function AeroFitApp() {
           </div>
 
           {/* แสดงชื่อผู้ทำแบบประเมิน (read-only จากหน้า Profile) */}
-          <div className={`mt-4 flex items-center gap-3 px-4 py-3 rounded-2xl border ${isSurveyNameDuplicate ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200'}`}>
-            <User className={`w-5 h-5 shrink-0 ${isSurveyNameDuplicate ? 'text-rose-500' : 'text-teal-600'}`} />
+          <div className={`mt-4 flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all ${
+            isSurveyAlreadySubmitted
+              ? 'bg-emerald-50/70 border-emerald-200'
+              : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              isSurveyAlreadySubmitted ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-teal-600'
+            }`}>
+              {isSurveyAlreadySubmitted ? <CheckCircle2 className="w-5 h-5" /> : <User className="w-5 h-5" />}
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">ผู้ทำแบบประเมิน (จากหน้าตั้งค่า)</p>
-              <p className={`text-sm font-bold truncate ${isSurveyNameDuplicate ? 'text-rose-700' : 'text-slate-900'}`}>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                {isSurveyAlreadySubmitted ? 'ผู้ทำแบบประเมิน (บันทึกข้อมูลเรียบร้อยแล้ว)' : 'ผู้ทำแบบประเมิน (จากหน้าตั้งค่า)'}
+              </p>
+              <p className="text-sm font-bold truncate text-slate-900">
                 {currentUserName || 'ไม่ระบุชื่อ'}
               </p>
             </div>
-            {isSurveyNameDuplicate ? (
-              <span className="text-[11px] bg-rose-100 text-rose-700 border border-rose-300 px-2.5 py-1 rounded-full font-bold shrink-0 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" /> ชื่อซ้ำในระบบ
+            {isSurveyAlreadySubmitted ? (
+              <span className="text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1 rounded-full font-bold shrink-0 flex items-center gap-1.5 shadow-sm">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> บันทึกสำเร็จ
               </span>
             ) : (
-              <span className="text-[11px] bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-full font-bold shrink-0">
+              <span className="text-[11px] bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-full font-bold shrink-0 flex items-center gap-1">
                 ✓ พร้อมส่ง
               </span>
             )}
           </div>
 
-          {isSurveyNameDuplicate && (
-            <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-rose-700 text-xs font-semibold">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                ชื่อ "{currentUserName}" ได้ทำแบบประเมินไปแล้วในระบบ ไม่สามารถส่งซ้ำได้
-                <p className="font-normal text-rose-600 mt-0.5">หากต้องการส่งในนามของท่านอื่น กรุณากลับไปเปลี่ยนชื่อที่หน้าตั้งค่าข้อมูล (ปุ่ม "แก้ไขข้อมูล" ด้านบน)</p>
+          {/* กล่องแจ้งเตือนสีเขียวเมื่อบันทึกผลสำเร็จ */}
+          {isSurveyAlreadySubmitted && (
+            <div className="mt-3 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl flex items-start gap-3 shadow-sm animate-in fade-in duration-300">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-bold text-xs sm:text-sm text-emerald-900">
+                  บันทึกผลการประเมินและชื่อ "{currentUserName}" เรียบร้อยแล้ว
+                </p>
+                <p className="text-xs text-emerald-700 font-medium leading-relaxed">
+                  ข้อมูลถูกซิงก์เข้าสู่ระบบและตารางสรุปผลด้านล่างเรียบร้อยแล้ว ขอบคุณสำหรับการร่วมประเมิน
+                </p>
               </div>
             </div>
           )}
@@ -2465,33 +2567,36 @@ export default function AeroFitApp() {
           <button
             type="submit"
             disabled={
-              isSurveyNameDuplicate ||
+              isSurveyAlreadySubmitted ||
               !currentUserName ||
-              submitStatus === 'loading' ||
-              submitStatus === 'success'
+              submitStatus === 'loading'
             }
             className={`w-full py-4 rounded-2xl font-bold text-sm shadow-md transition-all active:scale-[0.99] mt-4 flex items-center justify-center gap-2 ${
-              isSurveyNameDuplicate
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                : submitStatus === 'success' 
-                ? 'bg-emerald-500 text-white shadow-emerald-500/40' 
+              isSurveyAlreadySubmitted
+                ? 'bg-emerald-600 text-white cursor-default shadow-none'
+                : submitStatus === 'loading'
+                ? 'bg-slate-400 text-white cursor-wait'
                 : submitStatus === 'error'
                 ? 'bg-rose-500 text-white'
-                : submitStatus === 'loading'
-                ? 'bg-slate-400 text-white'
                 : 'bg-slate-900 hover:bg-slate-800 text-white'
             }`}
           >
-            {isSurveyNameDuplicate && (
+            {isSurveyAlreadySubmitted ? (
               <>
-                <AlertCircle className="w-5 h-5 text-rose-500" />
-                ชื่อหรือรหัสนี้ทำแบบประเมินแล้ว (ไม่สามารถใช้ชื่อซ้ำได้)
+                <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+                บันทึกผลการประเมินและชื่อ "{currentUserName}" เรียบร้อยแล้ว
               </>
+            ) : submitStatus === 'loading' ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" /> กำลังซิงค์ข้อมูลไปที่ Google Sheets...
+              </>
+            ) : submitStatus === 'error' ? (
+              <>
+                <AlertCircle className="w-5 h-5" /> เกิดข้อผิดพลาดทางเครือข่าย (ระบบบันทึกออฟไลน์แล้ว)
+              </>
+            ) : (
+              'ส่งผลประเมินไปยัง Google Sheets (+1 ผู้เข้าร่วม)'
             )}
-            {!isSurveyNameDuplicate && submitStatus === 'loading' && <><RefreshCw className="w-5 h-5 animate-spin" /> กำลังซิงค์ข้อมูลไปที่ Google Sheets...</>}
-            {!isSurveyNameDuplicate && submitStatus === 'success' && <><CheckCircle2 className="w-5 h-5" /> บันทึกผลสำเร็จ ขอบคุณที่ช่วยทดสอบนะงับ</>}
-            {!isSurveyNameDuplicate && submitStatus === 'error' && <><AlertCircle className="w-5 h-5" /> เกิดข้อผิดพลาดทางเครือข่าย (ระบบบันทึกออฟไลน์แล้ว)</>}
-            {!isSurveyNameDuplicate && submitStatus === 'idle' && 'ส่งผลประเมินไปยัง Google Sheets (+1 ผู้เข้าร่วม)'}
           </button>
         </form>
       </div>
